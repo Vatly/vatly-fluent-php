@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Vatly\Fluent\Contracts;
 
+use Vatly\Fluent\Data\StoreSubscriptionData;
+use Vatly\Fluent\Data\UpdateSubscriptionData;
+
 /**
  * Interface for subscription persistence.
  */
@@ -32,16 +35,12 @@ interface SubscriptionRepositoryInterface
     public function ownerHasActiveSubscription(BillableInterface $owner, string $type): bool;
 
     /**
-     * Create a new subscription.
-     *
-     * @param array<string, mixed> $attributes
+     * Store a new subscription from Vatly.
      */
-    public function create(array $attributes): SubscriptionInterface;
+    public function store(StoreSubscriptionData $data): SubscriptionInterface;
 
     /**
-     * Update a subscription.
-     *
-     * @param array<string, mixed> $attributes
+     * Update an existing subscription from Vatly.
      */
-    public function update(SubscriptionInterface $subscription, array $attributes): SubscriptionInterface;
+    public function update(SubscriptionInterface $subscription, UpdateSubscriptionData $data): SubscriptionInterface;
 }

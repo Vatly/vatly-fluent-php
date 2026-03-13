@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Mockery;
 use Vatly\Fluent\Contracts\SubscriptionInterface;
 use Vatly\Fluent\Contracts\SubscriptionRepositoryInterface;
+use Vatly\Fluent\Data\UpdateSubscriptionData;
 use Vatly\Fluent\Events\OrderPaid;
 use Vatly\Fluent\Events\SubscriptionCanceledImmediately;
 use Vatly\Fluent\Events\SubscriptionCanceledWithGracePeriod;
@@ -47,8 +48,8 @@ class CancelSubscriptionOnCanceledTest extends TestCase
         $existing = Mockery::mock(SubscriptionInterface::class);
         $repo = Mockery::mock(SubscriptionRepositoryInterface::class);
         $repo->shouldReceive('findByVatlyId')->with('sub_1')->once()->andReturn($existing);
-        $repo->shouldReceive('update')->once()->with($existing, Mockery::on(function ($attrs) {
-            return isset($attrs['ends_at']) && $attrs['ends_at'] instanceof DateTimeImmutable;
+        $repo->shouldReceive('update')->once()->with($existing, Mockery::on(function (UpdateSubscriptionData $data) {
+            return $data->endsAt instanceof DateTimeImmutable;
         }))->andReturn($existing);
 
         $reaction = new CancelSubscriptionOnCanceled($repo);
@@ -61,8 +62,8 @@ class CancelSubscriptionOnCanceledTest extends TestCase
         $existing = Mockery::mock(SubscriptionInterface::class);
         $repo = Mockery::mock(SubscriptionRepositoryInterface::class);
         $repo->shouldReceive('findByVatlyId')->with('sub_1')->once()->andReturn($existing);
-        $repo->shouldReceive('update')->once()->with($existing, Mockery::on(function ($attrs) use ($endsAt) {
-            return $attrs['ends_at'] === $endsAt;
+        $repo->shouldReceive('update')->once()->with($existing, Mockery::on(function (UpdateSubscriptionData $data) use ($endsAt) {
+            return $data->endsAt === $endsAt;
         }))->andReturn($existing);
 
         $reaction = new CancelSubscriptionOnCanceled($repo);

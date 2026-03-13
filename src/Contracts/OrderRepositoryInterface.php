@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Vatly\Fluent\Contracts;
 
+use Vatly\Fluent\Data\StoreOrderData;
+use Vatly\Fluent\Data\UpdateOrderData;
+
 /**
  * Interface for order persistence.
  */
@@ -22,16 +25,12 @@ interface OrderRepositoryInterface
     public function findAllByOwner(BillableInterface $owner): array;
 
     /**
-     * Create a new order.
-     *
-     * @param array<string, mixed> $attributes
+     * Store a new order from Vatly.
      */
-    public function create(array $attributes): OrderInterface;
+    public function store(StoreOrderData $data): OrderInterface;
 
     /**
-     * Update an order.
-     *
-     * @param array<string, mixed> $attributes
+     * Update an existing order from Vatly.
      */
-    public function update(OrderInterface $order, array $attributes): OrderInterface;
+    public function update(OrderInterface $order, UpdateOrderData $data): OrderInterface;
 }

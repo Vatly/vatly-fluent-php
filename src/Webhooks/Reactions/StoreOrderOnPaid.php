@@ -6,15 +6,15 @@ namespace Vatly\Fluent\Webhooks\Reactions;
 
 use Vatly\Fluent\Contracts\OrderRepositoryInterface;
 use Vatly\Fluent\Contracts\WebhookReactionInterface;
+use Vatly\Fluent\Data\StoreOrderData;
+use Vatly\Fluent\Data\UpdateOrderData;
 use Vatly\Fluent\Events\OrderPaid;
 
 class StoreOrderOnPaid implements WebhookReactionInterface
 {
     public function __construct(
         private readonly OrderRepositoryInterface $orders,
-    ) {
-        //
-    }
+    ) {}
 
     public function supports(object $event): bool
     {
@@ -27,25 +27,25 @@ class StoreOrderOnPaid implements WebhookReactionInterface
         $existing = $this->orders->findByVatlyId($event->orderId);
 
         if ($existing !== null) {
-            $this->orders->update($existing, [
-                'status' => 'paid',
-                'total' => $event->total,
-                'currency' => $event->currency,
-                'invoice_number' => $event->invoiceNumber,
-                'payment_method' => $event->paymentMethod,
-            ]);
+            $this->orders->update($existing, new UpdateOrderData(
+                status: 'paid',
+                total: $event->total,
+                currency: $event->currency,
+                invoiceNumber: $event->invoiceNumber,
+                paymentMethod: $event->paymentMethod,
+            ));
 
             return;
         }
 
-        $this->orders->create([
-            'vatly_id' => $event->orderId,
-            'customer_id' => $event->customerId,
-            'status' => 'paid',
-            'total' => $event->total,
-            'currency' => $event->currency,
-            'invoice_number' => $event->invoiceNumber,
-            'payment_method' => $event->paymentMethod,
-        ]);
+        $this->orders->store(new StoreOrderData(
+            vatlyId: $event->orderId,
+            customerId: $event->customerId,
+            status: 'paid',
+            total: $event->total,
+            currency: $event->currency,
+            invoiceNumber: $event->invoiceNumber,
+            paymentMethod: $event->paymentMethod,
+        ));
     }
 }

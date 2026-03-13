@@ -7,6 +7,8 @@ namespace Vatly\Fluent\Webhooks\Reactions;
 use Vatly\Fluent\Contracts\EventDispatcherInterface;
 use Vatly\Fluent\Contracts\SubscriptionRepositoryInterface;
 use Vatly\Fluent\Contracts\WebhookReactionInterface;
+use Vatly\Fluent\Data\StoreSubscriptionData;
+use Vatly\Fluent\Data\UpdateSubscriptionData;
 use Vatly\Fluent\Events\LocalSubscriptionCreated;
 use Vatly\Fluent\Events\SubscriptionStarted;
 
@@ -15,9 +17,7 @@ class SyncSubscriptionOnStarted implements WebhookReactionInterface
     public function __construct(
         private readonly SubscriptionRepositoryInterface $subscriptions,
         private readonly EventDispatcherInterface $dispatcher,
-    ) {
-        //
-    }
+    ) {}
 
     public function supports(object $event): bool
     {
@@ -30,23 +30,23 @@ class SyncSubscriptionOnStarted implements WebhookReactionInterface
         $existing = $this->subscriptions->findByVatlyId($event->subscriptionId);
 
         if ($existing !== null) {
-            $this->subscriptions->update($existing, [
-                'plan_id' => $event->planId,
-                'name' => $event->name,
-                'quantity' => $event->quantity,
-            ]);
+            $this->subscriptions->update($existing, new UpdateSubscriptionData(
+                planId: $event->planId,
+                name: $event->name,
+                quantity: $event->quantity,
+            ));
 
             return;
         }
 
-        $subscription = $this->subscriptions->create([
-            'vatly_id' => $event->subscriptionId,
-            'customer_id' => $event->customerId,
-            'type' => $event->type,
-            'plan_id' => $event->planId,
-            'name' => $event->name,
-            'quantity' => $event->quantity,
-        ]);
+        $subscription = $this->subscriptions->store(new StoreSubscriptionData(
+            vatlyId: $event->subscriptionId,
+            customerId: $event->customerId,
+            type: $event->type,
+            planId: $event->planId,
+            name: $event->name,
+            quantity: $event->quantity,
+        ));
 
         $this->dispatcher->dispatch(new LocalSubscriptionCreated($subscription));
     }

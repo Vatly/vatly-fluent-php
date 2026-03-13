@@ -8,6 +8,8 @@ use Mockery;
 use Vatly\Fluent\Contracts\EventDispatcherInterface;
 use Vatly\Fluent\Contracts\SubscriptionInterface;
 use Vatly\Fluent\Contracts\SubscriptionRepositoryInterface;
+use Vatly\Fluent\Data\StoreSubscriptionData;
+use Vatly\Fluent\Data\UpdateSubscriptionData;
 use Vatly\Fluent\Events\LocalSubscriptionCreated;
 use Vatly\Fluent\Events\OrderPaid;
 use Vatly\Fluent\Events\SubscriptionStarted;
@@ -38,18 +40,18 @@ class SyncSubscriptionOnStartedTest extends TestCase
         $this->assertFalse($reaction->supports($event));
     }
 
-    public function test_it_creates_a_subscription_when_none_exists(): void
+    public function test_it_stores_a_subscription_when_none_exists(): void
     {
         $subscription = Mockery::mock(SubscriptionInterface::class);
         $repo = Mockery::mock(SubscriptionRepositoryInterface::class);
         $repo->shouldReceive('findByVatlyId')->with('sub_1')->once()->andReturnNull();
-        $repo->shouldReceive('create')->once()->with(Mockery::on(function ($attrs) {
-            return $attrs['vatly_id'] === 'sub_1'
-                && $attrs['customer_id'] === 'cus_1'
-                && $attrs['type'] === 'default'
-                && $attrs['plan_id'] === 'plan_1'
-                && $attrs['name'] === 'Monthly'
-                && $attrs['quantity'] === 1;
+        $repo->shouldReceive('store')->once()->with(Mockery::on(function (StoreSubscriptionData $data) {
+            return $data->vatlyId === 'sub_1'
+                && $data->customerId === 'cus_1'
+                && $data->type === 'default'
+                && $data->planId === 'plan_1'
+                && $data->name === 'Monthly'
+                && $data->quantity === 1;
         }))->andReturn($subscription);
 
         $dispatcher = Mockery::mock(EventDispatcherInterface::class);
@@ -67,10 +69,10 @@ class SyncSubscriptionOnStartedTest extends TestCase
         $existing = Mockery::mock(SubscriptionInterface::class);
         $repo = Mockery::mock(SubscriptionRepositoryInterface::class);
         $repo->shouldReceive('findByVatlyId')->with('sub_1')->once()->andReturn($existing);
-        $repo->shouldReceive('update')->once()->with($existing, Mockery::on(function ($attrs) {
-            return $attrs['plan_id'] === 'plan_1' && $attrs['name'] === 'Monthly' && $attrs['quantity'] === 1;
+        $repo->shouldReceive('update')->once()->with($existing, Mockery::on(function (UpdateSubscriptionData $data) {
+            return $data->planId === 'plan_1' && $data->name === 'Monthly' && $data->quantity === 1;
         }))->andReturn($existing);
-        $repo->shouldNotReceive('create');
+        $repo->shouldNotReceive('store');
 
         $dispatcher = Mockery::mock(EventDispatcherInterface::class);
         $dispatcher->shouldNotReceive('dispatch');
