@@ -8,14 +8,14 @@ use Mockery;
 use Vatly\API\Endpoints\SubscriptionEndpoint;
 use Vatly\API\Types\Link;
 use Vatly\API\VatlyApiClient;
-use Vatly\Fluent\Actions\GetPaymentMethodUpdateUrl;
+use Vatly\Fluent\Actions\CreateBillingUpdateLink;
 use Vatly\Fluent\Tests\TestCase;
 
-class GetPaymentMethodUpdateUrlTest extends TestCase
+class CreateBillingUpdateLinkTest extends TestCase
 {
     private VatlyApiClient $mockApiClient;
     private SubscriptionEndpoint $mockSubscriptionEndpoint;
-    private GetPaymentMethodUpdateUrl $action;
+    private CreateBillingUpdateLink $action;
 
     protected function setUp(): void
     {
@@ -25,16 +25,16 @@ class GetPaymentMethodUpdateUrlTest extends TestCase
         $this->mockSubscriptionEndpoint = Mockery::mock(SubscriptionEndpoint::class);
         $this->mockApiClient->subscriptions = $this->mockSubscriptionEndpoint;
 
-        $this->action = new GetPaymentMethodUpdateUrl($this->mockApiClient);
+        $this->action = new CreateBillingUpdateLink($this->mockApiClient);
     }
 
-    public function test_it_returns_the_payment_method_update_url(): void
+    public function test_it_returns_the_billing_update_link(): void
     {
         $subscriptionId = 'subscription_abc123';
-        $expectedUrl = 'https://checkout.vatly.com/update-payment/abc123';
+        $expectedUrl = 'https://checkout.vatly.com/billing-update/abc123';
 
         $this->mockSubscriptionEndpoint
-            ->shouldReceive('requestLinkForBillingDetailsUpdate')
+            ->shouldReceive('createBillingUpdateLink')
             ->once()
             ->with($subscriptionId, [])
             ->andReturn(new Link($expectedUrl, 'text/html'));
@@ -58,10 +58,10 @@ class GetPaymentMethodUpdateUrlTest extends TestCase
         ];
 
         $this->mockSubscriptionEndpoint
-            ->shouldReceive('requestLinkForBillingDetailsUpdate')
+            ->shouldReceive('createBillingUpdateLink')
             ->once()
             ->with($subscriptionId, $prefillData)
-            ->andReturn(new Link('https://checkout.vatly.com/update/xyz', 'text/html'));
+            ->andReturn(new Link('https://checkout.vatly.com/billing-update/xyz', 'text/html'));
 
         $response = $this->action->execute($subscriptionId, $prefillData);
 
