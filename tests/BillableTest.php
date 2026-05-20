@@ -177,23 +177,27 @@ class BillableTest extends TestCase
         $billable->asVatlyCustomer();
     }
 
-    public function test_ensure_has_vatly_customer_is_a_noop_when_already_linked(): void
+    public function test_create_or_get_returns_existing_without_creating_when_already_linked(): void
     {
-        $owner = $this->stubOwner(hasVatlyId: true);
+        $owner = Mockery::mock(BillableInterface::class);
+        $owner->shouldReceive('hasVatlyId')->andReturn(true);
+        $owner->shouldReceive('getVatlyId')->andReturn('customer_xyz');
 
-        $customers = Mockery::mock(CustomerRepositoryInterface::class);
-        $customers->shouldNotReceive('save');
+        $customer = $this->makeCustomer(['id' => 'customer_xyz']);
 
-        $action = Mockery::mock(CreateCustomer::class);
-        $action->shouldNotReceive('execute');
+        $getCustomer = Mockery::mock(GetCustomer::class);
+        $getCustomer->shouldReceive('execute')->with('customer_xyz')->andReturn($customer);
+
+        $createCustomer = Mockery::mock(CreateCustomer::class);
+        $createCustomer->shouldNotReceive('execute');
 
         $billable = $this->buildBillable(
             owner: $owner,
-            customers: $customers,
-            createCustomerAction: $action,
+            getCustomerAction: $getCustomer,
+            createCustomerAction: $createCustomer,
         );
 
-        $billable->ensureHasVatlyCustomer();
+        $this->assertSame($customer, $billable->createOrGetVatlyCustomer());
     }
 
     private function stubOwner(bool $hasVatlyId = false): BillableInterface

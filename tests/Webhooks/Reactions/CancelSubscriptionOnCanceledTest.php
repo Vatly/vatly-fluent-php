@@ -22,7 +22,9 @@ class CancelSubscriptionOnCanceledTest extends TestCase
         $repo = Mockery::mock(SubscriptionRepositoryInterface::class);
         $reaction = new CancelSubscriptionOnCanceled($repo);
 
-        $this->assertTrue($reaction->supports(new SubscriptionCanceledImmediately('cus_1', 'sub_1')));
+        $event = new SubscriptionCanceledImmediately('cus_1', 'sub_1', new DateTimeImmutable());
+
+        $this->assertTrue($reaction->supports($event));
     }
 
     public function test_it_supports_subscription_canceled_with_grace_period_events(): void
@@ -43,20 +45,21 @@ class CancelSubscriptionOnCanceledTest extends TestCase
         $this->assertFalse($reaction->supports(new OrderPaid('cus_1', 'ord_1', 9900, 'EUR', null, null)));
     }
 
-    public function test_it_sets_ends_at_to_now_for_immediate_cancellation(): void
+    public function test_it_persists_the_event_ends_at_for_immediate_cancellation(): void
     {
+        $endsAt = new DateTimeImmutable('2026-05-20T10:00:00Z');
         $existing = Mockery::mock(SubscriptionInterface::class);
         $repo = Mockery::mock(SubscriptionRepositoryInterface::class);
         $repo->shouldReceive('findByVatlyId')->with('sub_1')->once()->andReturn($existing);
-        $repo->shouldReceive('update')->once()->with($existing, Mockery::on(function (UpdateSubscriptionData $data) {
-            return $data->endsAt instanceof DateTimeImmutable;
+        $repo->shouldReceive('update')->once()->with($existing, Mockery::on(function (UpdateSubscriptionData $data) use ($endsAt) {
+            return $data->endsAt === $endsAt;
         }))->andReturn($existing);
 
         $reaction = new CancelSubscriptionOnCanceled($repo);
-        $reaction->handle(new SubscriptionCanceledImmediately('cus_1', 'sub_1'));
+        $reaction->handle(new SubscriptionCanceledImmediately('cus_1', 'sub_1', $endsAt));
     }
 
-    public function test_it_sets_ends_at_to_grace_period_end_for_grace_period_cancellation(): void
+    public function test_it_persists_the_event_ends_at_for_grace_period_cancellation(): void
     {
         $endsAt = new DateTimeImmutable('2025-03-15T00:00:00Z');
         $existing = Mockery::mock(SubscriptionInterface::class);
@@ -77,6 +80,6 @@ class CancelSubscriptionOnCanceledTest extends TestCase
         $repo->shouldNotReceive('update');
 
         $reaction = new CancelSubscriptionOnCanceled($repo);
-        $reaction->handle(new SubscriptionCanceledImmediately('cus_1', 'sub_1'));
+        $reaction->handle(new SubscriptionCanceledImmediately('cus_1', 'sub_1', new DateTimeImmutable()));
     }
 }

@@ -112,20 +112,6 @@ class Billable
         return $this->createAsVatlyCustomer($options);
     }
 
-    /**
-     * Ensure a Vatly customer exists for this owner. No-op if already linked.
-     *
-     * @param array<string, mixed> $createOptions
-     */
-    public function ensureHasVatlyCustomer(array $createOptions = []): void
-    {
-        if ($this->owner->hasVatlyId()) {
-            return;
-        }
-
-        $this->createAsVatlyCustomer($createOptions);
-    }
-
     public function assertCustomerExists(): void
     {
         if (! $this->owner->hasVatlyId()) {
