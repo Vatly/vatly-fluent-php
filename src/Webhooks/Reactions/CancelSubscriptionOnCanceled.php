@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Vatly\Fluent\Webhooks\Reactions;
 
-use DateTimeImmutable;
 use Vatly\Fluent\Contracts\SubscriptionRepositoryInterface;
 use Vatly\Fluent\Contracts\WebhookReactionInterface;
 use Vatly\Fluent\Data\UpdateSubscriptionData;
@@ -28,26 +27,19 @@ class CancelSubscriptionOnCanceled implements WebhookReactionInterface
 
     public function handle(object $event): void
     {
-        $subscriptionId = match (true) {
-            $event instanceof SubscriptionCanceledImmediately => $event->subscriptionId,
-            $event instanceof SubscriptionCanceledWithGracePeriod => $event->subscriptionId,
-            default => throw new \InvalidArgumentException('Unsupported event type'),
-        };
+        if (! $event instanceof SubscriptionCanceledImmediately
+            && ! $event instanceof SubscriptionCanceledWithGracePeriod) {
+            return;
+        }
 
-        $subscription = $this->subscriptions->findByVatlyId($subscriptionId);
+        $subscription = $this->subscriptions->findByVatlyId($event->subscriptionId);
 
         if ($subscription === null) {
             return;
         }
 
-        $endsAt = match (true) {
-            $event instanceof SubscriptionCanceledImmediately => new DateTimeImmutable(),
-            $event instanceof SubscriptionCanceledWithGracePeriod => $event->endsAt,
-            default => throw new \InvalidArgumentException('Unsupported event type'),
-        };
-
         $this->subscriptions->update($subscription, new UpdateSubscriptionData(
-            endsAt: $endsAt,
+            endsAt: $event->endsAt,
         ));
     }
 }

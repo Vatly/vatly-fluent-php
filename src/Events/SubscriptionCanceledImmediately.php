@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Vatly\Fluent\Events;
 
+use DateTimeImmutable;
+use DateTimeInterface;
+
 /**
  * Event representing a subscription being canceled immediately at Vatly.
  *
@@ -16,6 +19,7 @@ class SubscriptionCanceledImmediately
     public function __construct(
         public string $customerId,
         public string $subscriptionId,
+        public DateTimeInterface $endsAt,
     ) {
         //
     }
@@ -25,6 +29,7 @@ class SubscriptionCanceledImmediately
         return new self(
             customerId: $webhook->object['data']['customerId'],
             subscriptionId: $webhook->resourceId,
+            endsAt: new DateTimeImmutable($webhook->raisedAt),
         );
     }
 }
