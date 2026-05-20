@@ -89,6 +89,35 @@ new WebhookProcessor(
 );
 ```
 
+6. Register a `BillableFactory` singleton with the shared dependencies. This is what your `$entity->vatlyBillable()` accessor calls to construct a per-owner `Vatly\Fluent\Billable`:
+
+```php
+use Vatly\Fluent\BillableFactory;
+
+$factory = new BillableFactory(
+    subscriptions: $subscriptionRepository,
+    customers: $customerRepository,
+    orders: $orderRepository,
+    config: $config,
+    createCheckoutAction: new CreateCheckout($apiClient),
+    createCustomerAction: new CreateCustomer($apiClient),
+    getCustomerAction: new GetCustomer($apiClient),
+    getSubscriptionAction: new GetSubscription($apiClient),
+    swapSubscriptionPlanAction: new SwapSubscriptionPlan($apiClient),
+    cancelSubscriptionAction: new CancelSubscription($apiClient),
+    createBillingUpdateLinkAction: new CreateSubscriptionBillingUpdateLink($apiClient),
+);
+```
+
+In your User/Tenant trait or base class, expose it:
+
+```php
+public function vatlyBillable(): \Vatly\Fluent\Billable
+{
+    return $container->get(BillableFactory::class)->forOwner($this);
+}
+```
+
 ### 3. The webhook endpoint
 
 Expose a single POST route in your framework. In the handler:
@@ -109,10 +138,10 @@ Return `2xx` on success, `403` on signature mismatch. Anything else and Vatly wi
 
 ### 4. Application-facing ergonomics
 
-Drivers typically add framework-idiomatic ergonomics on top:
+The canonical per-owner API surface lives in fluent on `Vatly\Fluent\Billable` — `subscribe()`, `checkout()`, `subscribed()`, `subscription()`, `createAsVatlyCustomer()`, etc. Drivers expose that surface through their framework idioms:
 
-- **Trait / base class** so an application's User entity gets `$user->subscription('default')->cancel()`-style methods. (Laravel's `Billable` trait composes `Manages*` concerns.) This is intentionally **not** in fluent — each framework's idioms differ enough that a shared trait would be a poor fit.
-- **Builders** for checkouts/subscriptions that work in the framework's types. Fluent ships generic builders driven by `BillableInterface` — you may wrap or extend them.
+- **A trait, base class, or accessor** so the application's User/Tenant entity gets a `vatlyBillable()` method returning a `Vatly\Fluent\Billable`. Optionally add Cashier-style proxy methods (`$user->subscribe()`, `$user->subscribed()`) that delegate to `vatlyBillable()->X()` — see [vatly-laravel's `Billable` trait](https://github.com/Vatly/vatly-laravel/blob/main/src/Billable.php) for the reference example.
+- **Eloquent/Doctrine/etc. relations** for collection-style access (`$user->subscriptions`) that fluent can't provide — those stay driver-side.
 - **Audit/admin views, console commands, fakes** — purely driver-level.
 
 ### 5. Listing your driver
@@ -147,32 +176,6 @@ Tests are PHPUnit + Mockery, fully isolated — no framework or HTTP needed. The
 3. Run `composer test` and `composer analyse` locally.
 4. Open the PR. CI runs the same checks.
 
-## Planned consolidation (known follow-up)
-
-The Laravel driver currently carries some code that arguably belongs here:
-
-- **Duplicate builders** ([`vatly-laravel/src/Builders/`](https://github.com/Vatly/vatly-laravel/tree/main/src/Builders)) — Eloquent-flavoured `CheckoutBuilder` / `SubscriptionBuilder` that overlap with fluent's framework-agnostic versions. Open question whether the Eloquent/`Collection` signatures justify the duplication or whether fluent's builders can absorb the Laravel ergonomics behind the `BillableInterface` seam.
-- **`VatlyApiActions/*` wrapper layer** ([`vatly-laravel/src/VatlyApiActions/`](https://github.com/Vatly/vatly-laravel/tree/main/src/VatlyApiActions)) — Laravel-side actions that bypass fluent's actions and call the raw API client, returning local response DTOs. Fluent's stated design is "no response wrapper layer". Either fluent absorbs the response DTOs (and changes that stance) or the Laravel layer is dissolved and consumers use raw API resources. Decision pending.
-
-Both are breaking changes for Laravel consumers and will land in a dedicated alpha bump.
-
-### Coordinated release: adopt `WebhookProcessorFactory` in vatly-laravel
-
-`WebhookProcessorFactory` is new (additive). After the next fluent alpha release, [`vatly-laravel`](https://github.com/Vatly/vatly-laravel)'s `VatlyServiceProvider::registerWebhookProcessor()` should be migrated to:
-
-```php
-$this->app->singleton(WebhookProcessor::class, function () {
-    return WebhookProcessorFactory::create(
-        config: $this->app->make(ConfigurationInterface::class),
-        subscriptions: $this->app->make(SubscriptionRepositoryInterface::class),
-        orders: $this->app->make(OrderRepositoryInterface::class),
-        webhookCalls: $this->app->make(WebhookCallRepositoryInterface::class),
-        dispatcher: $this->app->make(EventDispatcherInterface::class),
-    );
-});
-```
-
-Track in a Laravel-side issue once the fluent release lands.
 
 ## License
 
