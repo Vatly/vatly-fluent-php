@@ -34,18 +34,18 @@ use Vatly\Fluent\Exceptions\InvalidCustomerException;
 class Billable
 {
     public function __construct(
-        private readonly BillableInterface $owner,
-        private readonly SubscriptionRepositoryInterface $subscriptions,
-        private readonly CustomerRepositoryInterface $customers,
-        private readonly OrderRepositoryInterface $orders,
-        private readonly ConfigurationInterface $config,
-        private readonly CreateCheckout $createCheckoutAction,
-        private readonly CreateCustomer $createCustomerAction,
-        private readonly GetCustomer $getCustomerAction,
-        private readonly GetSubscription $getSubscriptionAction,
-        private readonly SwapSubscriptionPlan $swapSubscriptionPlanAction,
-        private readonly CancelSubscription $cancelSubscriptionAction,
-        private readonly CreateSubscriptionBillingUpdateLink $createBillingUpdateLinkAction,
+        private BillableInterface $owner,
+        private SubscriptionRepositoryInterface $subscriptions,
+        private CustomerRepositoryInterface $customers,
+        private OrderRepositoryInterface $orders,
+        private ConfigurationInterface $config,
+        private CreateCheckout $createCheckoutAction,
+        private CreateCustomer $createCustomerAction,
+        private GetCustomer $getCustomerAction,
+        private GetSubscription $getSubscriptionAction,
+        private SwapSubscriptionPlan $swapSubscriptionPlanAction,
+        private CancelSubscription $cancelSubscriptionAction,
+        private CreateSubscriptionBillingUpdateLink $createBillingUpdateLinkAction,
     ) {
         //
     }

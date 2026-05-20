@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Vatly\Fluent;
 
 use DateTimeInterface;
-use Vatly\API\Types\Link;
 use Vatly\Fluent\Actions\CancelSubscription;
 use Vatly\Fluent\Actions\CreateSubscriptionBillingUpdateLink;
 use Vatly\Fluent\Actions\GetSubscription;
@@ -27,11 +26,11 @@ class SubscriptionHandle
 {
     public function __construct(
         private SubscriptionInterface $subscription,
-        private readonly SubscriptionRepositoryInterface $subscriptions,
-        private readonly SwapSubscriptionPlan $swapAction,
-        private readonly CancelSubscription $cancelAction,
-        private readonly GetSubscription $getSubscriptionAction,
-        private readonly CreateSubscriptionBillingUpdateLink $createBillingUpdateLinkAction,
+        private SubscriptionRepositoryInterface $subscriptions,
+        private SwapSubscriptionPlan $swapAction,
+        private CancelSubscription $cancelAction,
+        private GetSubscription $getSubscriptionAction,
+        private CreateSubscriptionBillingUpdateLink $createBillingUpdateLinkAction,
     ) {
         //
     }
@@ -180,8 +179,6 @@ class SubscriptionHandle
             $this->subscription->getVatlyId(),
             $prefillData,
         );
-
-        assert($link instanceof Link);
 
         return $link->href;
     }

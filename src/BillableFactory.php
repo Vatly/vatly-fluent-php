@@ -27,17 +27,17 @@ use Vatly\Fluent\Contracts\SubscriptionRepositoryInterface;
 class BillableFactory
 {
     public function __construct(
-        private readonly SubscriptionRepositoryInterface $subscriptions,
-        private readonly CustomerRepositoryInterface $customers,
-        private readonly OrderRepositoryInterface $orders,
-        private readonly ConfigurationInterface $config,
-        private readonly CreateCheckout $createCheckoutAction,
-        private readonly CreateCustomer $createCustomerAction,
-        private readonly GetCustomer $getCustomerAction,
-        private readonly GetSubscription $getSubscriptionAction,
-        private readonly SwapSubscriptionPlan $swapSubscriptionPlanAction,
-        private readonly CancelSubscription $cancelSubscriptionAction,
-        private readonly CreateSubscriptionBillingUpdateLink $createBillingUpdateLinkAction,
+        private SubscriptionRepositoryInterface $subscriptions,
+        private CustomerRepositoryInterface $customers,
+        private OrderRepositoryInterface $orders,
+        private ConfigurationInterface $config,
+        private CreateCheckout $createCheckoutAction,
+        private CreateCustomer $createCustomerAction,
+        private GetCustomer $getCustomerAction,
+        private GetSubscription $getSubscriptionAction,
+        private SwapSubscriptionPlan $swapSubscriptionPlanAction,
+        private CancelSubscription $cancelSubscriptionAction,
+        private CreateSubscriptionBillingUpdateLink $createBillingUpdateLinkAction,
     ) {
         //
     }
