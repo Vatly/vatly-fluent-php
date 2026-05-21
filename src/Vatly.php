@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Vatly\Fluent;
 
 use Vatly\Fluent\Actions\CancelSubscription;
-use Vatly\Fluent\Actions\CreateSubscriptionBillingUpdateLink;
+use Vatly\Fluent\Actions\UpdateSubscriptionBilling;
 use Vatly\Fluent\Actions\CreateCheckout;
 use Vatly\Fluent\Actions\CreateCustomer;
 use Vatly\Fluent\Actions\GetCustomer;
@@ -34,7 +34,7 @@ class Vatly
     private ?GetSubscription $getSubscription = null;
     private ?CancelSubscription $cancelSubscription = null;
     private ?SwapSubscriptionPlan $swapSubscriptionPlan = null;
-    private ?CreateSubscriptionBillingUpdateLink $createSubscriptionBillingUpdateLink = null;
+    private ?UpdateSubscriptionBilling $updateSubscriptionBilling = null;
 
     public function __construct(
         string $apiKey,
@@ -101,8 +101,8 @@ class Vatly
         return $this->swapSubscriptionPlan ??= new SwapSubscriptionPlan($this->apiClient);
     }
 
-    public function createSubscriptionBillingUpdateLink(): CreateSubscriptionBillingUpdateLink
+    public function updateSubscriptionBilling(): UpdateSubscriptionBilling
     {
-        return $this->createSubscriptionBillingUpdateLink ??= new CreateSubscriptionBillingUpdateLink($this->apiClient);
+        return $this->updateSubscriptionBilling ??= new UpdateSubscriptionBilling($this->apiClient);
     }
 }
