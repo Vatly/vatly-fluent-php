@@ -33,7 +33,7 @@ class SubscriptionCanceledTest extends TestCase
         $this->assertSame($endsAt, $event->endsAt);
     }
 
-    public function test_immediately_creates_from_webhook_with_ends_at_now(): void
+    public function test_immediately_creates_from_webhook(): void
     {
         $webhook = new WebhookReceived(
             id: 'webhook_event_abc',
@@ -41,17 +41,20 @@ class SubscriptionCanceledTest extends TestCase
             eventName: 'subscription.canceled_immediately',
             entityType: 'subscription',
             entityId: 'sub_123',
-            object: ['data' => ['customerId' => 'cus_456']],
+            object: [
+                'customerId' => 'cus_456',
+                'endedAt' => '2024-01-15T10:00:00Z',
+            ],
         );
 
-        $before = new DateTimeImmutable();
         $event = SubscriptionCanceledImmediately::fromWebhook($webhook);
-        $after = new DateTimeImmutable();
 
         $this->assertSame('cus_456', $event->customerId);
         $this->assertSame('sub_123', $event->subscriptionId);
-        $this->assertGreaterThanOrEqual($before, $event->endsAt);
-        $this->assertLessThanOrEqual($after, $event->endsAt);
+        $this->assertEquals(
+            new DateTimeImmutable('2024-01-15T10:00:00Z'),
+            $event->endsAt,
+        );
     }
 
     public function test_with_grace_period_has_correct_vatly_event_name_constant(): void
@@ -83,10 +86,8 @@ class SubscriptionCanceledTest extends TestCase
             entityType: 'subscription',
             entityId: 'sub_123',
             object: [
-                'data' => [
-                    'customerId' => 'cus_456',
-                    'endsAt' => '2024-02-15T10:00:00Z',
-                ],
+                'customerId' => 'cus_456',
+                'endedAt' => '2024-02-15T10:00:00Z',
             ],
         );
 

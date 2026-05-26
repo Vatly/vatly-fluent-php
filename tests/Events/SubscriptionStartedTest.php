@@ -48,12 +48,10 @@ class SubscriptionStartedTest extends TestCase
             entityType: 'subscription',
             entityId: 'sub_123',
             object: [
-                'data' => [
-                    'customerId' => 'cus_456',
-                    'subscriptionPlanId' => 'plan_789',
-                    'name' => 'Basic Plan',
-                    'quantity' => 1,
-                ],
+                'customerId' => 'cus_456',
+                'subscriptionPlanId' => 'plan_789',
+                'name' => 'Basic Plan',
+                'quantity' => 1,
             ],
         );
 

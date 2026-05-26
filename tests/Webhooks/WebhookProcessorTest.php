@@ -49,12 +49,10 @@ class WebhookProcessorTest extends TestCase
             entityType: 'subscription',
             entityId: 'sub_123',
             object: [
-                'data' => [
-                    'customerId' => 'cus_456',
-                    'subscriptionPlanId' => 'plan_789',
-                    'name' => 'Premium Plan',
-                    'quantity' => 1,
-                ],
+                'customerId' => 'cus_456',
+                'subscriptionPlanId' => 'plan_789',
+                'name' => 'Premium Plan',
+                'quantity' => 1,
             ],
         );
 
@@ -77,7 +75,7 @@ class WebhookProcessorTest extends TestCase
                     && $eventName === 'subscription.started'
                     && $entityType === 'subscription'
                     && $entityId === 'sub_123'
-                    && $object['data']['customerId'] === 'cus_456'
+                    && $object['customerId'] === 'cus_456'
                     && $vatlyCustomerId === 'cus_456';
             });
 
@@ -102,12 +100,10 @@ class WebhookProcessorTest extends TestCase
             entityType: 'subscription',
             entityId: 'sub_123',
             object: [
-                'data' => [
-                    'customerId' => 'cus_456',
-                    'subscriptionPlanId' => 'plan_789',
-                    'name' => 'Premium Plan',
-                    'quantity' => 1,
-                ],
+                'customerId' => 'cus_456',
+                'subscriptionPlanId' => 'plan_789',
+                'name' => 'Premium Plan',
+                'quantity' => 1,
             ],
         );
 

@@ -51,6 +51,6 @@ class WebhookReceived
      */
     public function getCustomerId(): ?string
     {
-        return $this->object['data']['customerId'] ?? null;
+        return $this->object['customerId'] ?? null;
     }
 }

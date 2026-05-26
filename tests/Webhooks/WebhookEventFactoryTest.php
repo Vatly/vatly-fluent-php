@@ -42,7 +42,7 @@ class WebhookEventFactoryTest extends TestCase
             eventName: 'subscription.started',
             entityType: 'subscription',
             entityId: 'sub_123',
-            object: (object) ['data' => (object) ['customerId' => 'cus_456']],
+            object: (object) ['customerId' => 'cus_456'],
         );
 
         $event = $this->factory->fromPayload($payload);
@@ -81,12 +81,10 @@ class WebhookEventFactoryTest extends TestCase
             entityType: 'subscription',
             entityId: 'sub_123',
             object: [
-                'data' => [
-                    'customerId' => 'cus_456',
-                    'subscriptionPlanId' => 'plan_789',
-                    'name' => 'Premium Plan',
-                    'quantity' => 1,
-                ],
+                'customerId' => 'cus_456',
+                'subscriptionPlanId' => 'plan_789',
+                'name' => 'Premium Plan',
+                'quantity' => 1,
             ],
         );
 
@@ -109,9 +107,8 @@ class WebhookEventFactoryTest extends TestCase
             entityType: 'subscription',
             entityId: 'sub_123',
             object: [
-                'data' => [
-                    'customerId' => 'cus_456',
-                ],
+                'customerId' => 'cus_456',
+                'endedAt' => '2024-01-15T10:00:00Z',
             ],
         );
 
@@ -131,10 +128,8 @@ class WebhookEventFactoryTest extends TestCase
             entityType: 'subscription',
             entityId: 'sub_123',
             object: [
-                'data' => [
-                    'customerId' => 'cus_456',
-                    'endsAt' => '2024-02-15T10:00:00Z',
-                ],
+                'customerId' => 'cus_456',
+                'endedAt' => '2024-02-15T10:00:00Z',
             ],
         );
 
@@ -172,13 +167,10 @@ class WebhookEventFactoryTest extends TestCase
             entityType: 'order',
             entityId: 'ord_123',
             object: [
-                'data' => [
-                    'customerId' => 'cus_456',
-                    'total' => 9900,
-                    'currency' => 'EUR',
-                    'invoiceNumber' => 'INV-2024-001',
-                    'paymentMethod' => 'credit_card',
-                ],
+                'customerId' => 'cus_456',
+                'total' => ['currency' => 'EUR', 'value' => '99.00'],
+                'invoiceNumber' => 'INV-2024-001',
+                'paymentMethod' => 'credit_card',
             ],
         );
 

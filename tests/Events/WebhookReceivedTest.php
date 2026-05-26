@@ -17,7 +17,7 @@ class WebhookReceivedTest extends TestCase
             eventName: 'subscription.started',
             entityType: 'subscription',
             entityId: 'sub_123',
-            object: ['data' => ['customerId' => 'cus_456']],
+            object: ['customerId' => 'cus_456'],
         );
 
         $this->assertSame('webhook_event_abc', $event->id);
@@ -25,7 +25,7 @@ class WebhookReceivedTest extends TestCase
         $this->assertSame('subscription.started', $event->eventName);
         $this->assertSame('subscription', $event->entityType);
         $this->assertSame('sub_123', $event->entityId);
-        $this->assertSame(['data' => ['customerId' => 'cus_456']], $event->object);
+        $this->assertSame(['customerId' => 'cus_456'], $event->object);
     }
 
     public function test_it_converts_to_array(): void
@@ -36,7 +36,7 @@ class WebhookReceivedTest extends TestCase
             eventName: 'subscription.started',
             entityType: 'subscription',
             entityId: 'sub_123',
-            object: ['data' => []],
+            object: [],
         );
 
         $array = $event->toArray();
@@ -58,7 +58,7 @@ class WebhookReceivedTest extends TestCase
             eventName: 'subscription.started',
             entityType: 'subscription',
             entityId: 'sub_123',
-            object: ['data' => ['customerId' => 'cus_456']],
+            object: ['customerId' => 'cus_456'],
         );
 
         $this->assertSame('cus_456', $event->getCustomerId());
@@ -72,7 +72,7 @@ class WebhookReceivedTest extends TestCase
             eventName: 'test.event',
             entityType: 'resource',
             entityId: 'res_123',
-            object: ['data' => []],
+            object: [],
         );
 
         $this->assertNull($event->getCustomerId());
