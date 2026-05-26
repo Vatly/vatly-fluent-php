@@ -10,8 +10,8 @@ namespace Vatly\Fluent\Events;
  * Mirrors the wire shape returned by `Vatly\API\Webhooks\Webhook::parse()`
  * — see {@see \Vatly\API\Webhooks\WebhookPayload}. The `object` field is
  * converted from the upstream stdClass to a deep array so consumers can
- * use array access (`$webhook->object['data']['customerId']`) without
- * juggling property/array syntax.
+ * use array access (`$webhook->object['customerId']`) without juggling
+ * property/array syntax.
  *
  * @immutable
  */
