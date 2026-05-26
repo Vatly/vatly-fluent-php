@@ -20,7 +20,7 @@ class SignatureVerifierTest extends TestCase
 
         $this->verifier = new SignatureVerifier();
         $this->secret = 'test-webhook-secret';
-        $this->payload = '{"eventName":"subscription.started","resourceId":"sub_123"}';
+        $this->payload = '{"eventName":"subscription.started","entityId":"sub_123"}';
     }
 
     public function test_it_verifies_valid_signature(): void

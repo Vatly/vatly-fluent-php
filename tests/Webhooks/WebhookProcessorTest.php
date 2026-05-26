@@ -50,17 +50,15 @@ class WebhookProcessorTest extends TestCase
     {
         $payload = json_encode([
             'eventName' => 'subscription.started',
-            'resourceId' => 'sub_123',
-            'resourceName' => 'subscription',
+            'entityId' => 'sub_123',
+            'entityType' => 'subscription',
             'object' => [
-                'data' => [
-                    'customerId' => 'cus_456',
-                    'subscriptionPlanId' => 'plan_789',
-                    'name' => 'Premium Plan',
-                    'quantity' => 1,
-                ],
+                'customerId' => 'cus_456',
+                'subscriptionPlanId' => 'plan_789',
+                'name' => 'Premium Plan',
+                'quantity' => 1,
             ],
-            'raisedAt' => '2024-01-15T10:00:00Z',
+            'createdAt' => '2024-01-15T10:00:00Z',
             'testmode' => false,
         ]);
 
@@ -71,18 +69,18 @@ class WebhookProcessorTest extends TestCase
             ->once()
             ->withArgs(function (
                 string $eventName,
-                string $resourceId,
-                string $resourceName,
+                string $entityId,
+                string $entityType,
                 array $recordedPayload,
-                DateTimeInterface $raisedAt,
+                DateTimeInterface $createdAt,
                 bool $testmode,
                 ?string $vatlyCustomerId,
             ) {
                 return $eventName === 'subscription.started'
-                    && $resourceId === 'sub_123'
-                    && $resourceName === 'subscription'
+                    && $entityId === 'sub_123'
+                    && $entityType === 'subscription'
                     && $recordedPayload['eventName'] === 'subscription.started'
-                    && $raisedAt->format('Y-m-d') === '2024-01-15'
+                    && $createdAt->format('Y-m-d') === '2024-01-15'
                     && $testmode === false
                     && $vatlyCustomerId === 'cus_456';
             });
@@ -104,17 +102,15 @@ class WebhookProcessorTest extends TestCase
     {
         $payload = json_encode([
             'eventName' => 'subscription.started',
-            'resourceId' => 'sub_123',
-            'resourceName' => 'subscription',
+            'entityId' => 'sub_123',
+            'entityType' => 'subscription',
             'object' => [
-                'data' => [
-                    'customerId' => 'cus_456',
-                    'subscriptionPlanId' => 'plan_789',
-                    'name' => 'Premium Plan',
-                    'quantity' => 1,
-                ],
+                'customerId' => 'cus_456',
+                'subscriptionPlanId' => 'plan_789',
+                'name' => 'Premium Plan',
+                'quantity' => 1,
             ],
-            'raisedAt' => '2024-01-15T10:00:00Z',
+            'createdAt' => '2024-01-15T10:00:00Z',
             'testmode' => false,
         ]);
 
@@ -149,10 +145,10 @@ class WebhookProcessorTest extends TestCase
     {
         $payload = json_encode([
             'eventName' => 'subscription.started',
-            'resourceId' => 'sub_123',
-            'resourceName' => 'subscription',
+            'entityId' => 'sub_123',
+            'entityType' => 'subscription',
             'object' => [],
-            'raisedAt' => '2024-01-15T10:00:00Z',
+            'createdAt' => '2024-01-15T10:00:00Z',
             'testmode' => false,
         ]);
 
@@ -168,10 +164,10 @@ class WebhookProcessorTest extends TestCase
     {
         $payload = json_encode([
             'eventName' => 'subscription.started',
-            'resourceId' => 'sub_123',
-            'resourceName' => 'subscription',
+            'entityId' => 'sub_123',
+            'entityType' => 'subscription',
             'object' => [],
-            'raisedAt' => '2024-01-15T10:00:00Z',
+            'createdAt' => '2024-01-15T10:00:00Z',
             'testmode' => false,
         ]);
 
@@ -187,10 +183,10 @@ class WebhookProcessorTest extends TestCase
     {
         $payload = json_encode([
             'eventName' => 'unknown.event',
-            'resourceId' => 'res_123',
-            'resourceName' => 'unknown',
+            'entityId' => 'res_123',
+            'entityType' => 'unknown',
             'object' => [],
-            'raisedAt' => '2024-01-15T10:00:00Z',
+            'createdAt' => '2024-01-15T10:00:00Z',
             'testmode' => false,
         ]);
 
@@ -213,17 +209,15 @@ class WebhookProcessorTest extends TestCase
     {
         $payload = json_encode([
             'eventName' => 'subscription.started',
-            'resourceId' => 'sub_123',
-            'resourceName' => 'subscription',
+            'entityId' => 'sub_123',
+            'entityType' => 'subscription',
             'object' => [
-                'data' => [
-                    'customerId' => 'cus_456',
-                    'subscriptionPlanId' => 'plan_789',
-                    'name' => 'Test Plan',
-                    'quantity' => 1,
-                ],
+                'customerId' => 'cus_456',
+                'subscriptionPlanId' => 'plan_789',
+                'name' => 'Test Plan',
+                'quantity' => 1,
             ],
-            'raisedAt' => '2024-01-15T10:00:00Z',
+            'createdAt' => '2024-01-15T10:00:00Z',
             'testmode' => true,
         ]);
 
@@ -234,10 +228,10 @@ class WebhookProcessorTest extends TestCase
             ->once()
             ->withArgs(function (
                 string $eventName,
-                string $resourceId,
-                string $resourceName,
+                string $entityId,
+                string $entityType,
                 array $recordedPayload,
-                DateTimeInterface $raisedAt,
+                DateTimeInterface $createdAt,
                 bool $testmode,
                 ?string $vatlyCustomerId,
             ) {

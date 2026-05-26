@@ -16,10 +16,10 @@ class UnsupportedWebhookReceived
      */
     public function __construct(
         public string $eventName,
-        public string $resourceId,
-        public string $resourceName,
+        public string $entityId,
+        public string $entityType,
         public array $object,
-        public string $raisedAt,
+        public string $createdAt,
         public bool $testmode,
     ) {
         //
@@ -29,10 +29,10 @@ class UnsupportedWebhookReceived
     {
         return new self(
             eventName: $webhook->eventName,
-            resourceId: $webhook->resourceId,
-            resourceName: $webhook->resourceName,
+            entityId: $webhook->entityId,
+            entityType: $webhook->entityType,
             object: $webhook->object,
-            raisedAt: $webhook->raisedAt,
+            createdAt: $webhook->createdAt,
             testmode: $webhook->testmode,
         );
     }

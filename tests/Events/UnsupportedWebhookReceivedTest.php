@@ -14,18 +14,18 @@ class UnsupportedWebhookReceivedTest extends TestCase
     {
         $event = new UnsupportedWebhookReceived(
             eventName: 'unknown.event',
-            resourceId: 'res_123',
-            resourceName: 'resource',
+            entityId: 'res_123',
+            entityType: 'resource',
             object: ['data' => ['key' => 'value']],
-            raisedAt: '2024-01-15T10:00:00Z',
+            createdAt: '2024-01-15T10:00:00Z',
             testmode: true,
         );
 
         $this->assertSame('unknown.event', $event->eventName);
-        $this->assertSame('res_123', $event->resourceId);
-        $this->assertSame('resource', $event->resourceName);
+        $this->assertSame('res_123', $event->entityId);
+        $this->assertSame('resource', $event->entityType);
         $this->assertSame(['data' => ['key' => 'value']], $event->object);
-        $this->assertSame('2024-01-15T10:00:00Z', $event->raisedAt);
+        $this->assertSame('2024-01-15T10:00:00Z', $event->createdAt);
         $this->assertTrue($event->testmode);
     }
 
@@ -33,10 +33,10 @@ class UnsupportedWebhookReceivedTest extends TestCase
     {
         $webhook = new WebhookReceived(
             eventName: 'unknown.event.type',
-            resourceId: 'xyz_789',
-            resourceName: 'unknown_resource',
+            entityId: 'xyz_789',
+            entityType: 'unknown_resource',
             object: ['foo' => 'bar'],
-            raisedAt: '2024-06-01T12:00:00Z',
+            createdAt: '2024-06-01T12:00:00Z',
             testmode: false,
         );
 
@@ -44,10 +44,10 @@ class UnsupportedWebhookReceivedTest extends TestCase
 
         $this->assertInstanceOf(UnsupportedWebhookReceived::class, $event);
         $this->assertSame('unknown.event.type', $event->eventName);
-        $this->assertSame('xyz_789', $event->resourceId);
-        $this->assertSame('unknown_resource', $event->resourceName);
+        $this->assertSame('xyz_789', $event->entityId);
+        $this->assertSame('unknown_resource', $event->entityType);
         $this->assertSame(['foo' => 'bar'], $event->object);
-        $this->assertSame('2024-06-01T12:00:00Z', $event->raisedAt);
+        $this->assertSame('2024-06-01T12:00:00Z', $event->createdAt);
         $this->assertFalse($event->testmode);
     }
 }

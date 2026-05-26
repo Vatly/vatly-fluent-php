@@ -43,17 +43,15 @@ class SubscriptionStartedTest extends TestCase
     {
         $webhook = new WebhookReceived(
             eventName: 'subscription.started',
-            resourceId: 'sub_123',
-            resourceName: 'subscription',
+            entityId: 'sub_123',
+            entityType: 'subscription',
             object: [
-                'data' => [
-                    'customerId' => 'cus_456',
-                    'subscriptionPlanId' => 'plan_789',
-                    'name' => 'Basic Plan',
-                    'quantity' => 1,
-                ],
+                'customerId' => 'cus_456',
+                'subscriptionPlanId' => 'plan_789',
+                'name' => 'Basic Plan',
+                'quantity' => 1,
             ],
-            raisedAt: '2024-01-15T10:00:00Z',
+            createdAt: '2024-01-15T10:00:00Z',
             testmode: false,
         );
 

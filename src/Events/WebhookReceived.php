@@ -16,11 +16,11 @@ class WebhookReceived
      */
     public function __construct(
         public string $eventName,
-        public string $resourceId,
-        public string $resourceName,
-        public array $object,
-        public string $raisedAt,
-        public bool $testmode,
+        public string $entityId,
+        public string $entityType,
+        public array  $object,
+        public string $createdAt,
+        public bool   $testmode,
     ) {
         //
     }
@@ -32,10 +32,10 @@ class WebhookReceived
     {
         return [
             'eventName' => $this->eventName,
-            'resourceId' => $this->resourceId,
-            'resourceName' => $this->resourceName,
+            'entityId' => $this->entityId,
+            'entityType' => $this->entityType,
             'object' => $this->object,
-            'raisedAt' => $this->raisedAt,
+            'createdAt' => $this->createdAt,
             'testmode' => $this->testmode,
         ];
     }
@@ -45,6 +45,6 @@ class WebhookReceived
      */
     public function getCustomerId(): ?string
     {
-        return $this->object['data']['customerId'] ?? null;
+        return $this->object['customerId'] ?? null;
     }
 }

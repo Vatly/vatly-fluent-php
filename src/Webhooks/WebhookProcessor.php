@@ -48,10 +48,10 @@ class WebhookProcessor
 
         $this->repository->record(
             eventName: $webhook->eventName,
-            resourceId: $webhook->resourceId,
-            resourceName: $webhook->resourceName,
-            payload: $decoded,
-            raisedAt: new DateTimeImmutable($webhook->raisedAt),
+            entityId: $webhook->entityId,
+            entityType: $webhook->entityType,
+            object: $decoded,
+            createdAt: new DateTimeImmutable($webhook->createdAt),
             testmode: $webhook->testmode,
             vatlyCustomerId: $webhook->getCustomerId(),
         );

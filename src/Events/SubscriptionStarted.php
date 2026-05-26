@@ -29,12 +29,12 @@ class SubscriptionStarted
     public static function fromWebhook(WebhookReceived $webhook): self
     {
         return new self(
-            customerId: $webhook->object['data']['customerId'],
-            subscriptionId: $webhook->resourceId,
-            planId: $webhook->object['data']['subscriptionPlanId'],
+            customerId: $webhook->getCustomerId(),
+            subscriptionId: $webhook->entityId,
+            planId: $webhook->object['subscriptionPlanId'],
             type: self::DEFAULT_TYPE,
-            name: $webhook->object['data']['name'],
-            quantity: $webhook->object['data']['quantity'],
+            name: $webhook->object['name'],
+            quantity: $webhook->object['quantity'],
         );
     }
 }

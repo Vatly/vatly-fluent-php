@@ -13,18 +13,18 @@ class WebhookReceivedTest extends TestCase
     {
         $event = new WebhookReceived(
             eventName: 'subscription.started',
-            resourceId: 'sub_123',
-            resourceName: 'subscription',
-            object: ['data' => ['customerId' => 'cus_456']],
-            raisedAt: '2024-01-15T10:00:00Z',
+            entityId: 'sub_123',
+            entityType: 'subscription',
+            object: ['customerId' => 'cus_456'],
+            createdAt: '2024-01-15T10:00:00Z',
             testmode: true,
         );
 
         $this->assertSame('subscription.started', $event->eventName);
-        $this->assertSame('sub_123', $event->resourceId);
-        $this->assertSame('subscription', $event->resourceName);
-        $this->assertSame(['data' => ['customerId' => 'cus_456']], $event->object);
-        $this->assertSame('2024-01-15T10:00:00Z', $event->raisedAt);
+        $this->assertSame('sub_123', $event->entityId);
+        $this->assertSame('subscription', $event->entityType);
+        $this->assertSame(['customerId' => 'cus_456'], $event->object);
+        $this->assertSame('2024-01-15T10:00:00Z', $event->createdAt);
         $this->assertTrue($event->testmode);
     }
 
@@ -32,20 +32,20 @@ class WebhookReceivedTest extends TestCase
     {
         $event = new WebhookReceived(
             eventName: 'subscription.started',
-            resourceId: 'sub_123',
-            resourceName: 'subscription',
-            object: ['data' => []],
-            raisedAt: '2024-01-15T10:00:00Z',
+            entityId: 'sub_123',
+            entityType: 'subscription',
+            object: [],
+            createdAt: '2024-01-15T10:00:00Z',
             testmode: false,
         );
 
         $array = $event->toArray();
 
         $this->assertArrayHasKey('eventName', $array);
-        $this->assertArrayHasKey('resourceId', $array);
-        $this->assertArrayHasKey('resourceName', $array);
+        $this->assertArrayHasKey('entityId', $array);
+        $this->assertArrayHasKey('entityType', $array);
         $this->assertArrayHasKey('object', $array);
-        $this->assertArrayHasKey('raisedAt', $array);
+        $this->assertArrayHasKey('createdAt', $array);
         $this->assertArrayHasKey('testmode', $array);
         $this->assertSame('subscription.started', $array['eventName']);
     }
@@ -54,10 +54,10 @@ class WebhookReceivedTest extends TestCase
     {
         $event = new WebhookReceived(
             eventName: 'subscription.started',
-            resourceId: 'sub_123',
-            resourceName: 'subscription',
-            object: ['data' => ['customerId' => 'cus_456']],
-            raisedAt: '2024-01-15T10:00:00Z',
+            entityId: 'sub_123',
+            entityType: 'subscription',
+            object: ['customerId' => 'cus_456'],
+            createdAt: '2024-01-15T10:00:00Z',
             testmode: false,
         );
 
@@ -68,10 +68,10 @@ class WebhookReceivedTest extends TestCase
     {
         $event = new WebhookReceived(
             eventName: 'test.event',
-            resourceId: 'res_123',
-            resourceName: 'resource',
-            object: ['data' => []],
-            raisedAt: '2024-01-15T10:00:00Z',
+            entityId: 'res_123',
+            entityType: 'resource',
+            object: [],
+            createdAt: '2024-01-15T10:00:00Z',
             testmode: false,
         );
 

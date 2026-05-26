@@ -37,10 +37,10 @@ class WebhookEventFactoryTest extends TestCase
     {
         $payload = [
             'eventName' => 'subscription.started',
-            'resourceId' => 'sub_123',
-            'resourceName' => 'subscription',
-            'object' => ['data' => ['customerId' => 'cus_456']],
-            'raisedAt' => '2024-01-15T10:00:00Z',
+            'entityId' => 'sub_123',
+            'entityType' => 'subscription',
+            'object' => ['customerId' => 'cus_456'],
+            'createdAt' => '2024-01-15T10:00:00Z',
             'testmode' => true,
         ];
 
@@ -48,8 +48,8 @@ class WebhookEventFactoryTest extends TestCase
 
         $this->assertInstanceOf(WebhookReceived::class, $event);
         $this->assertSame('subscription.started', $event->eventName);
-        $this->assertSame('sub_123', $event->resourceId);
-        $this->assertSame('subscription', $event->resourceName);
+        $this->assertSame('sub_123', $event->entityId);
+        $this->assertSame('subscription', $event->entityType);
         $this->assertTrue($event->testmode);
         $this->assertSame('cus_456', $event->getCustomerId());
     }
@@ -58,17 +58,15 @@ class WebhookEventFactoryTest extends TestCase
     {
         $webhook = new WebhookReceived(
             eventName: 'subscription.started',
-            resourceId: 'sub_123',
-            resourceName: 'subscription',
+            entityId: 'sub_123',
+            entityType: 'subscription',
             object: [
-                'data' => [
-                    'customerId' => 'cus_456',
-                    'subscriptionPlanId' => 'plan_789',
-                    'name' => 'Premium Plan',
-                    'quantity' => 1,
-                ],
+                'customerId' => 'cus_456',
+                'subscriptionPlanId' => 'plan_789',
+                'name' => 'Premium Plan',
+                'quantity' => 1,
             ],
-            raisedAt: '2024-01-15T10:00:00Z',
+            createdAt: '2024-01-15T10:00:00Z',
             testmode: false,
         );
 
@@ -86,14 +84,12 @@ class WebhookEventFactoryTest extends TestCase
     {
         $webhook = new WebhookReceived(
             eventName: 'subscription.canceled_immediately',
-            resourceId: 'sub_123',
-            resourceName: 'subscription',
+            entityId: 'sub_123',
+            entityType: 'subscription',
             object: [
-                'data' => [
-                    'customerId' => 'cus_456',
-                ],
+                'customerId' => 'cus_456',
             ],
-            raisedAt: '2024-01-15T10:00:00Z',
+            createdAt: '2024-01-15T10:00:00Z',
             testmode: false,
         );
 
@@ -108,15 +104,13 @@ class WebhookEventFactoryTest extends TestCase
     {
         $webhook = new WebhookReceived(
             eventName: 'subscription.canceled_with_grace_period',
-            resourceId: 'sub_123',
-            resourceName: 'subscription',
+            entityId: 'sub_123',
+            entityType: 'subscription',
             object: [
-                'data' => [
-                    'customerId' => 'cus_456',
-                    'endsAt' => '2024-02-15T10:00:00Z',
-                ],
+                'customerId' => 'cus_456',
+                'endsAt' => '2024-02-15T10:00:00Z',
             ],
-            raisedAt: '2024-01-15T10:00:00Z',
+            createdAt: '2024-01-15T10:00:00Z',
             testmode: false,
         );
 
@@ -149,18 +143,16 @@ class WebhookEventFactoryTest extends TestCase
 
         $webhook = new WebhookReceived(
             eventName: 'order.paid',
-            resourceId: 'ord_123',
-            resourceName: 'order',
+            entityId: 'ord_123',
+            entityType: 'order',
             object: [
-                'data' => [
-                    'customerId' => 'cus_456',
-                    'total' => 9900,
-                    'currency' => 'EUR',
-                    'invoiceNumber' => 'INV-2024-001',
-                    'paymentMethod' => 'credit_card',
-                ],
+                'customerId' => 'cus_456',
+                'total' => 9900,
+                'currency' => 'EUR',
+                'invoiceNumber' => 'INV-2024-001',
+                'paymentMethod' => 'credit_card',
             ],
-            raisedAt: '2024-01-15T10:00:00Z',
+            createdAt: '2024-01-15T10:00:00Z',
             testmode: false,
         );
 
@@ -185,10 +177,10 @@ class WebhookEventFactoryTest extends TestCase
     {
         $webhook = new WebhookReceived(
             eventName: 'unknown.event',
-            resourceId: 'res_123',
-            resourceName: 'unknown',
+            entityId: 'res_123',
+            entityType: 'unknown',
             object: [],
-            raisedAt: '2024-01-15T10:00:00Z',
+            createdAt: '2024-01-15T10:00:00Z',
             testmode: false,
         );
 

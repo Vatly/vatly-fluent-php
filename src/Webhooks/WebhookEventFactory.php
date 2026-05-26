@@ -35,7 +35,7 @@ class WebhookEventFactory
             SubscriptionStarted::VATLY_EVENT_NAME => SubscriptionStarted::fromWebhook($webhook),
             SubscriptionCanceledImmediately::VATLY_EVENT_NAME => SubscriptionCanceledImmediately::fromWebhook($webhook),
             SubscriptionCanceledWithGracePeriod::VATLY_EVENT_NAME => SubscriptionCanceledWithGracePeriod::fromWebhook($webhook),
-            OrderPaid::VATLY_EVENT_NAME => OrderPaid::fromApiOrder($this->getOrder->execute($webhook->resourceId)),
+            OrderPaid::VATLY_EVENT_NAME => OrderPaid::fromApiOrder($this->getOrder->execute($webhook->entityId)),
             default => UnsupportedWebhookReceived::fromWebhook($webhook),
         };
     }
@@ -49,10 +49,10 @@ class WebhookEventFactory
     {
         return new WebhookReceived(
             eventName: $payload['eventName'] ?? '',
-            resourceId: $payload['resourceId'] ?? '',
-            resourceName: $payload['resourceName'] ?? '',
+            entityId: $payload['entityId'] ?? '',
+            entityType: $payload['entityType'] ?? '',
             object: $payload['object'] ?? [],
-            raisedAt: $payload['raisedAt'] ?? '',
+            createdAt: $payload['createdAt'] ?? '',
             testmode: $payload['testmode'] ?? false,
         );
     }

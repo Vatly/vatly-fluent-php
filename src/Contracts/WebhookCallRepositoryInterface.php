@@ -14,14 +14,14 @@ interface WebhookCallRepositoryInterface
     /**
      * Record a webhook call.
      *
-     * @param array<string, mixed> $payload
+     * @param array<string, mixed> $object
      */
     public function record(
         string $eventName,
-        string $resourceId,
-        string $resourceName,
-        array $payload,
-        DateTimeInterface $raisedAt,
+        string $entityId,
+        string $entityType,
+        array $object,
+        DateTimeInterface $createdAt,
         bool $testmode,
         ?string $vatlyCustomerId = null
     ): void;
