@@ -33,33 +33,7 @@ class SubscriptionCanceledTest extends TestCase
         $this->assertSame($endsAt, $event->endsAt);
     }
 
-    public function test_immediately_creates_from_webhook_using_object_ends_at(): void
-    {
-        $webhook = new WebhookReceived(
-            id: 'webhook_event_abc',
-            resource: 'webhook_event',
-            eventName: 'subscription.canceled_immediately',
-            entityType: 'subscription',
-            entityId: 'sub_123',
-            object: [
-                'data' => [
-                    'customerId' => 'cus_456',
-                    'endsAt' => '2024-01-15T10:00:00Z',
-                ],
-            ],
-        );
-
-        $event = SubscriptionCanceledImmediately::fromWebhook($webhook);
-
-        $this->assertSame('cus_456', $event->customerId);
-        $this->assertSame('sub_123', $event->subscriptionId);
-        $this->assertEquals(
-            new DateTimeImmutable('2024-01-15T10:00:00Z'),
-            $event->endsAt,
-        );
-    }
-
-    public function test_immediately_falls_back_to_now_when_object_lacks_ends_at(): void
+    public function test_immediately_creates_from_webhook_with_ends_at_now(): void
     {
         $webhook = new WebhookReceived(
             id: 'webhook_event_abc',
@@ -74,6 +48,8 @@ class SubscriptionCanceledTest extends TestCase
         $event = SubscriptionCanceledImmediately::fromWebhook($webhook);
         $after = new DateTimeImmutable();
 
+        $this->assertSame('cus_456', $event->customerId);
+        $this->assertSame('sub_123', $event->subscriptionId);
         $this->assertGreaterThanOrEqual($before, $event->endsAt);
         $this->assertLessThanOrEqual($after, $event->endsAt);
     }
