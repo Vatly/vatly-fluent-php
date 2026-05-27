@@ -15,8 +15,8 @@ use Vatly\Fluent\Actions\ResumeSubscription;
 use Vatly\Fluent\Actions\SwapSubscriptionPlan;
 use Vatly\Fluent\Contracts\BillableInterface;
 use Vatly\Fluent\Contracts\ConfigurationInterface;
-use Vatly\Fluent\Contracts\CustomerRepositoryInterface;
-use Vatly\Fluent\Contracts\OrderRepositoryInterface;
+use Vatly\Fluent\Contracts\CustomerWriter;
+use Vatly\Fluent\Contracts\OrderReader;
 use Vatly\Fluent\Contracts\SubscriptionRepositoryInterface;
 
 /**
@@ -30,8 +30,8 @@ class BillableFactory
 {
     public function __construct(
         private SubscriptionRepositoryInterface $subscriptions,
-        private CustomerRepositoryInterface $customers,
-        private OrderRepositoryInterface $orders,
+        private CustomerWriter $customers,
+        private OrderReader $orders,
         private ConfigurationInterface $config,
         private CreateCheckout $createCheckoutAction,
         private CreateCustomer $createCustomerAction,

@@ -5,24 +5,13 @@ declare(strict_types=1);
 namespace Vatly\Fluent\Contracts;
 
 /**
- * Interface for customer/billable persistence and lookup.
+ * Full customer repository — both read and write sides.
+ *
+ * Typehint this when a class genuinely needs both. Otherwise prefer the
+ * narrower {@see CustomerReader} or {@see CustomerWriter} so collaborators
+ * advertise the minimum capability they require.
  */
-interface CustomerRepositoryInterface
+interface CustomerRepositoryInterface extends CustomerReader, CustomerWriter
 {
-    /**
-     * Find a billable by its Vatly customer ID.
-     */
-    public function findByVatlyId(string $vatlyId): ?BillableInterface;
-
-    /**
-     * Find a billable by its Vatly customer ID or fail.
-     *
-     * @throws \Vatly\Fluent\Exceptions\InvalidCustomerException
-     */
-    public function findByVatlyIdOrFail(string $vatlyId): BillableInterface;
-
-    /**
-     * Save a billable entity.
-     */
-    public function save(BillableInterface $billable): void;
+    //
 }

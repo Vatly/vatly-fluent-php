@@ -202,6 +202,8 @@ Each contract is small (3–5 methods). See [src/Contracts](src/Contracts) for s
 
 Use your framework's ORM. There's no fluent-side abstraction over query building — you write straight ORM code.
 
+> Each of the three entity-side repos is also exposed as a Reader / Writer pair (`CustomerReader` + `CustomerWriter`, etc.). The combined interface extends both. Consumers — including your own webhook reactions — should typehint the narrowest role they actually need; reactions that only persist state can ask for `SubscriptionWriter` and won't be coupled to the read methods.
+
 ### 6. Implement `EventDispatcherInterface`
 
 ```php
@@ -368,10 +370,10 @@ In [src/Contracts](src/Contracts):
 - `BillableInterface` — the owner of subscriptions/orders
 - `SubscriptionInterface` — local subscription state + derived predicates
 - `OrderInterface` — local order state
-- `CustomerRepositoryInterface` — owner persistence
-- `SubscriptionRepositoryInterface` — subscription persistence
-- `OrderRepositoryInterface` — order persistence
-- `WebhookCallRepositoryInterface` — webhook audit log
+- `CustomerRepositoryInterface` — owner persistence. Splits into `CustomerReader` (find) + `CustomerWriter` (save) — typehint the narrowest you need.
+- `SubscriptionRepositoryInterface` — subscription persistence. Splits into `SubscriptionReader` (find/predicates) + `SubscriptionWriter` (store/update).
+- `OrderRepositoryInterface` — order persistence. Splits into `OrderReader` (find) + `OrderWriter` (store/update).
+- `WebhookCallRepositoryInterface` — webhook audit log (write-only by nature)
 - `EventDispatcherInterface` — fire domain events
 - `ConfigurationInterface` — API key, URL, version, webhook secret, redirect defaults
 - `WebhookReactionInterface` — extension point for adding your own webhook reactions

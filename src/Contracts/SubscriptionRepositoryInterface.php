@@ -4,43 +4,14 @@ declare(strict_types=1);
 
 namespace Vatly\Fluent\Contracts;
 
-use Vatly\Fluent\Data\StoreSubscriptionData;
-use Vatly\Fluent\Data\UpdateSubscriptionData;
-
 /**
- * Interface for subscription persistence.
+ * Full subscription repository — both read and write sides.
+ *
+ * Typehint this when a class needs both. Otherwise prefer the narrower
+ * {@see SubscriptionReader} or {@see SubscriptionWriter} so collaborators
+ * advertise the minimum capability they require.
  */
-interface SubscriptionRepositoryInterface
+interface SubscriptionRepositoryInterface extends SubscriptionReader, SubscriptionWriter
 {
-    /**
-     * Find a subscription by its Vatly ID.
-     */
-    public function findByVatlyId(string $vatlyId): ?SubscriptionInterface;
-
-    /**
-     * Find a subscription by owner and type.
-     */
-    public function findByOwnerAndType(BillableInterface $owner, string $type): ?SubscriptionInterface;
-
-    /**
-     * Find all subscriptions for an owner.
-     *
-     * @return SubscriptionInterface[]
-     */
-    public function findAllByOwner(BillableInterface $owner): array;
-
-    /**
-     * Check if owner has an active subscription of a given type.
-     */
-    public function ownerHasActiveSubscription(BillableInterface $owner, string $type): bool;
-
-    /**
-     * Store a new subscription from Vatly.
-     */
-    public function store(StoreSubscriptionData $data): SubscriptionInterface;
-
-    /**
-     * Update an existing subscription from Vatly.
-     */
-    public function update(SubscriptionInterface $subscription, UpdateSubscriptionData $data): SubscriptionInterface;
+    //
 }
