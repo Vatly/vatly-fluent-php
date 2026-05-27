@@ -238,6 +238,21 @@ $vatly = new Vatly(new Wiring(
 
 Register the `Vatly` instance as a singleton in your framework's container. Everything else resolves through it.
 
+If your driver ships plugin-specific webhook reactions (e.g. assigning a membership level on `subscription.started`), pass them as `additionalWebhookReactions`:
+
+```php
+$vatly = new Vatly(new Wiring(
+    config:        $config,
+    // ... repos + events ...
+    additionalWebhookReactions: [
+        new AssignMembershipLevelOnStarted(...),
+        new RevokeMembershipLevelOnCanceled(...),
+    ],
+));
+```
+
+They run after fluent's built-in reactions (subscription sync, order persistence, cancellation handling).
+
 ### 8. Expose the per-owner orchestrator
 
 Give your User model a way to reach `Vatly\Fluent\Billable`:

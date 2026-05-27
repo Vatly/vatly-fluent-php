@@ -116,6 +116,7 @@ class Vatly
             dispatcher: $this->wiring->events
                 ?? throw IncompleteWiring::missing('events', 'WebhookProcessor'),
             getOrder: $this->getOrder(),
+            additionalReactions: $this->wiring->additionalWebhookReactions,
         );
     }
 

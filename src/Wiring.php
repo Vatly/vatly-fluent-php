@@ -10,6 +10,7 @@ use Vatly\Fluent\Contracts\EventDispatcherInterface;
 use Vatly\Fluent\Contracts\OrderRepositoryInterface;
 use Vatly\Fluent\Contracts\SubscriptionRepositoryInterface;
 use Vatly\Fluent\Contracts\WebhookCallRepositoryInterface;
+use Vatly\Fluent\Contracts\WebhookReactionInterface;
 
 /**
  * Composition-time dependencies passed to {@see Vatly}.
@@ -18,18 +19,25 @@ use Vatly\Fluent\Contracts\WebhookCallRepositoryInterface;
  * omitted for api-only mode; calling a method on `Vatly` that needs an
  * absent dependency raises {@see \Vatly\Fluent\Exceptions\IncompleteWiring}.
  *
- * Drivers (Laravel, etc.) construct one of these from their container and
- * pass it to `new Vatly($wiring)` — typically bound as a singleton.
+ * Drivers (Laravel, WordPress, etc.) construct one of these from their
+ * container and pass it to `new Vatly($wiring)` — typically bound as
+ * a singleton. Drivers that ship plugin-specific webhook reactions
+ * (e.g. PMPro membership assignment, FluentCart order confirmation)
+ * supply them via `additionalWebhookReactions`.
  */
-final readonly class Wiring
+final class Wiring
 {
+    /**
+     * @param WebhookReactionInterface[] $additionalWebhookReactions
+     */
     public function __construct(
-        public ConfigurationInterface $config,
-        public ?SubscriptionRepositoryInterface $subscriptions = null,
-        public ?CustomerRepositoryInterface $customers = null,
-        public ?OrderRepositoryInterface $orders = null,
-        public ?WebhookCallRepositoryInterface $webhookCalls = null,
-        public ?EventDispatcherInterface $events = null,
+        public readonly ConfigurationInterface $config,
+        public readonly ?SubscriptionRepositoryInterface $subscriptions = null,
+        public readonly ?CustomerRepositoryInterface $customers = null,
+        public readonly ?OrderRepositoryInterface $orders = null,
+        public readonly ?WebhookCallRepositoryInterface $webhookCalls = null,
+        public readonly ?EventDispatcherInterface $events = null,
+        public readonly array $additionalWebhookReactions = [],
     ) {
         //
     }
