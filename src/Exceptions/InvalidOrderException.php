@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Vatly\Fluent\Exceptions;
 
-class InvalidOrderException extends VatlyException
+use RuntimeException;
+
+final class InvalidOrderException extends RuntimeException implements VatlyException
 {
     public static function notFound(string $vatlyId): self
     {

@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Vatly\Fluent\Exceptions;
 
+use RuntimeException;
 use Vatly\Fluent\Contracts\BillableInterface;
 
-class CustomerAlreadyCreatedException extends VatlyException
+final class CustomerAlreadyCreatedException extends RuntimeException implements VatlyException
 {
     public static function exists(BillableInterface $owner): self
     {

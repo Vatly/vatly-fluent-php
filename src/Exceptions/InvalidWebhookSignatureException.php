@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Vatly\Fluent\Exceptions;
 
-class InvalidWebhookSignatureException extends VatlyException
+use RuntimeException;
+
+final class InvalidWebhookSignatureException extends RuntimeException implements VatlyException
 {
     public static function missingSignature(): self
     {

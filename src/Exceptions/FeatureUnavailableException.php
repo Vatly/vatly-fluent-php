@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Vatly\Fluent\Exceptions;
 
-class FeatureUnavailableException extends VatlyException
+use RuntimeException;
+
+final class FeatureUnavailableException extends RuntimeException implements VatlyException
 {
     public static function notImplementedOnApi(): self
     {

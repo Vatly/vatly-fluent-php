@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Vatly\Fluent\Exceptions;
 
+use RuntimeException;
+
 /**
  * Thrown when {@see \Vatly\Fluent\Vatly} is asked for a service whose
  * required dependency was not provided to the {@see \Vatly\Fluent\Wiring} DTO.
@@ -15,7 +17,7 @@ namespace Vatly\Fluent\Exceptions;
  * The exception names the missing dependency and the feature being requested
  * so the fix is mechanical: add the dependency to your Wiring construction.
  */
-class IncompleteWiring extends VatlyException
+final class IncompleteWiring extends RuntimeException implements VatlyException
 {
     public static function missing(string $dependency, string $forFeature): self
     {
