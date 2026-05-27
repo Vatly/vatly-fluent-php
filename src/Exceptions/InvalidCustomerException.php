@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Vatly\Fluent\Exceptions;
 
-class InvalidCustomerException extends VatlyException
+use RuntimeException;
+
+final class InvalidCustomerException extends RuntimeException implements VatlyException
 {
     public static function notYetCreated(object $owner): self
     {

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Vatly\Fluent\Exceptions;
 
-class IncompleteInformationException extends VatlyException
+use RuntimeException;
+
+final class IncompleteInformationException extends RuntimeException implements VatlyException
 {
     public static function noCheckoutItems(): self
     {
