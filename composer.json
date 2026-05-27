@@ -10,7 +10,7 @@
         }
     ],
     "require": {
-        "php": "^8.2",
+        "php": "^8.1",
         "vatly/vatly-api-php": "^0.1.0-alpha.8"
     },
     "require-dev": {

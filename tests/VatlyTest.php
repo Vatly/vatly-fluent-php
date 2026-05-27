@@ -165,6 +165,31 @@ class VatlyTest extends TestCase
         $this->assertInstanceOf(WebhookProcessor::class, $vatly->webhookProcessor());
     }
 
+    public function test_additional_webhook_reactions_from_wiring_are_passed_through(): void
+    {
+        $customReaction = Mockery::mock(\Vatly\Fluent\Contracts\WebhookReactionInterface::class);
+
+        $vatly = new Vatly(new Wiring(
+            config: new ArrayConfiguration(['api_key' => 'test_abcdefghijklmnopqrstuvwxyz']),
+            subscriptions: Mockery::mock(SubscriptionRepositoryInterface::class),
+            customers: Mockery::mock(CustomerRepositoryInterface::class),
+            orders: Mockery::mock(OrderRepositoryInterface::class),
+            webhookCalls: Mockery::mock(WebhookCallRepositoryInterface::class),
+            events: Mockery::mock(EventDispatcherInterface::class),
+            additionalWebhookReactions: [$customReaction],
+        ));
+
+        $processor = $vatly->webhookProcessor();
+
+        // Reach in to confirm the custom reaction made it into the processor's list.
+        $ref = (new \ReflectionClass($processor))->getProperty('reactions');
+        $reactions = $ref->getValue($processor);
+
+        $this->assertContains($customReaction, $reactions);
+        // The 3 standard reactions stay on top, plus our extra one = 4.
+        $this->assertCount(4, $reactions);
+    }
+
     public function test_subscription_handle_wraps_the_given_subscription(): void
     {
         $vatly = $this->fullyWiredVatly();
