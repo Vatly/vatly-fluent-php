@@ -12,7 +12,7 @@ use Vatly\Fluent\Actions\ResumeSubscription;
 use Vatly\Fluent\Actions\SwapSubscriptionPlan;
 use Vatly\Fluent\Contracts\BillableInterface;
 use Vatly\Fluent\Contracts\SubscriptionInterface;
-use Vatly\Fluent\Contracts\SubscriptionRepositoryInterface;
+use Vatly\Fluent\Contracts\SubscriptionWriter;
 use Vatly\Fluent\Data\UpdateSubscriptionData;
 
 /**
@@ -26,7 +26,7 @@ class SubscriptionHandle
 {
     public function __construct(
         private SubscriptionInterface $subscription,
-        private SubscriptionRepositoryInterface $subscriptions,
+        private SubscriptionWriter $subscriptions,
         private SwapSubscriptionPlan $swapAction,
         private CancelSubscription $cancelAction,
         private ResumeSubscription $resumeAction,
