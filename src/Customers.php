@@ -22,12 +22,16 @@ class Customers
     /**
      * Host-first: create a Vatly customer for a known host entity and bind.
      *
+     * Always creates a new Vatly customer; any `vatlyId` on the supplied
+     * `CustomerProfile` is ignored. Use {@see self::attribute()} to link
+     * an existing Vatly customer to a host instead.
+     *
      * @throws CustomerAlreadyBound When the host customer id is already bound.
      */
     public function createFor(string $hostCustomerId, CustomerProfile $profile): ApiCustomer
     {
         if (($existing = $this->bindings->vatlyCustomerIdFor($hostCustomerId)) !== null) {
-            throw CustomerAlreadyBound::forHost($hostCustomerId, $existing);
+            throw CustomerAlreadyBound::onCreate($hostCustomerId, $existing);
         }
 
         $customer = $this->createCustomer->execute($profile->toPayload());
@@ -45,9 +49,24 @@ class Customers
         return $customer;
     }
 
-    /** Attach (or update) a host customer id to an already-known Vatly customer. */
+    /**
+     * Link an already-known Vatly customer to a host customer id.
+     *
+     * Idempotent for the exact pair (binding the same vatly id to the same
+     * host id twice is a no-op). Throws when the host is already bound to
+     * a different Vatly customer — silent overwrites have to go through
+     * the binding repo directly.
+     *
+     * @throws CustomerAlreadyBound When the host is already bound to a different Vatly customer.
+     */
     public function attribute(string $vatlyCustomerId, string $hostCustomerId): void
     {
+        $existing = $this->bindings->vatlyCustomerIdFor($hostCustomerId);
+
+        if ($existing !== null && $existing !== $vatlyCustomerId) {
+            throw CustomerAlreadyBound::onAttribute($hostCustomerId, $vatlyCustomerId, $existing);
+        }
+
         $this->bindings->bind($vatlyCustomerId, $hostCustomerId);
     }
 

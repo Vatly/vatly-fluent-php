@@ -56,18 +56,33 @@ class ExceptionsTest extends TestCase
         $this->assertSame('No checkout items provided. At least one item should be set when creating a checkout.', $exception->getMessage());
     }
 
-    public function test_customer_already_bound_extends_vatly_exception(): void
+    public function test_customer_already_bound_on_create_extends_vatly_exception(): void
     {
-        $exception = CustomerAlreadyBound::forHost('host_123', 'cus_abc');
+        $exception = CustomerAlreadyBound::onCreate('host_123', 'cus_abc');
 
         $this->assertInstanceOf(VatlyException::class, $exception);
+        $this->assertSame('host_123', $exception->hostCustomerId);
+        $this->assertSame('cus_abc', $exception->existingVatlyCustomerId);
+        $this->assertNull($exception->attemptedVatlyCustomerId);
     }
 
-    public function test_customer_already_bound_message_includes_both_ids(): void
+    public function test_customer_already_bound_on_create_message_includes_host_and_existing_ids(): void
     {
-        $exception = CustomerAlreadyBound::forHost('host_456', 'cus_def');
+        $exception = CustomerAlreadyBound::onCreate('host_456', 'cus_def');
 
         $this->assertStringContainsString('host_456', $exception->getMessage());
         $this->assertStringContainsString('cus_def', $exception->getMessage());
+    }
+
+    public function test_customer_already_bound_on_attribute_carries_attempted_and_existing_ids(): void
+    {
+        $exception = CustomerAlreadyBound::onAttribute('host_1', 'cus_new', 'cus_existing');
+
+        $this->assertSame('host_1', $exception->hostCustomerId);
+        $this->assertSame('cus_new', $exception->attemptedVatlyCustomerId);
+        $this->assertSame('cus_existing', $exception->existingVatlyCustomerId);
+        $this->assertStringContainsString('cus_new', $exception->getMessage());
+        $this->assertStringContainsString('cus_existing', $exception->getMessage());
+        $this->assertStringContainsString('host_1', $exception->getMessage());
     }
 }

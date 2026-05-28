@@ -48,10 +48,16 @@ class CustomersTest extends TestCase
 
         $customers = new Customers($createCustomer, Mockery::mock(GetCustomer::class), $bindings);
 
-        $this->expectException(CustomerAlreadyBound::class);
-        $this->expectExceptionMessageMatches('/host_1.*cus_existing/');
-
-        $customers->createFor('host_1', new CustomerProfile(email: 'host@example.test'));
+        try {
+            $customers->createFor('host_1', new CustomerProfile(email: 'host@example.test'));
+            $this->fail('Expected CustomerAlreadyBound');
+        } catch (CustomerAlreadyBound $e) {
+            $this->assertSame('host_1', $e->hostCustomerId);
+            $this->assertSame('cus_existing', $e->existingVatlyCustomerId);
+            $this->assertNull($e->attemptedVatlyCustomerId);
+            $this->assertStringContainsString("create Vatly customer for host customer id 'host_1'", $e->getMessage());
+            $this->assertStringContainsString("'cus_existing'", $e->getMessage());
+        }
     }
 
     public function test_create_unattributed_records_without_binding_a_host(): void
@@ -75,9 +81,10 @@ class CustomersTest extends TestCase
         $this->assertSame($apiCustomer, $result);
     }
 
-    public function test_attribute_delegates_to_bindings(): void
+    public function test_attribute_binds_when_host_is_unbound(): void
     {
         $bindings = Mockery::mock(CustomerBindingRepository::class);
+        $bindings->shouldReceive('vatlyCustomerIdFor')->with('host_x')->once()->andReturnNull();
         $bindings->shouldReceive('bind')->with('cus_x', 'host_x')->once();
 
         $customers = new Customers(
@@ -87,6 +94,46 @@ class CustomersTest extends TestCase
         );
 
         $customers->attribute('cus_x', 'host_x');
+    }
+
+    public function test_attribute_is_idempotent_for_the_same_pair(): void
+    {
+        $bindings = Mockery::mock(CustomerBindingRepository::class);
+        $bindings->shouldReceive('vatlyCustomerIdFor')->with('host_x')->once()->andReturn('cus_x');
+        $bindings->shouldReceive('bind')->with('cus_x', 'host_x')->once();
+
+        $customers = new Customers(
+            Mockery::mock(CreateCustomer::class),
+            Mockery::mock(GetCustomer::class),
+            $bindings,
+        );
+
+        $customers->attribute('cus_x', 'host_x');
+    }
+
+    public function test_attribute_throws_when_host_is_bound_to_a_different_vatly_customer(): void
+    {
+        $bindings = Mockery::mock(CustomerBindingRepository::class);
+        $bindings->shouldReceive('vatlyCustomerIdFor')->with('host_x')->once()->andReturn('cus_other');
+        $bindings->shouldNotReceive('bind');
+
+        $customers = new Customers(
+            Mockery::mock(CreateCustomer::class),
+            Mockery::mock(GetCustomer::class),
+            $bindings,
+        );
+
+        try {
+            $customers->attribute('cus_new', 'host_x');
+            $this->fail('Expected CustomerAlreadyBound');
+        } catch (CustomerAlreadyBound $e) {
+            $this->assertSame('host_x', $e->hostCustomerId);
+            $this->assertSame('cus_new', $e->attemptedVatlyCustomerId);
+            $this->assertSame('cus_other', $e->existingVatlyCustomerId);
+            $this->assertStringContainsString("attribute Vatly customer 'cus_new'", $e->getMessage());
+            $this->assertStringContainsString("host_x", $e->getMessage());
+            $this->assertStringContainsString("'cus_other'", $e->getMessage());
+        }
     }
 
     public function test_find_by_host_customer_id_returns_customer_when_bound(): void
