@@ -96,5 +96,44 @@ class OrderPaidTest extends TestCase
         $this->assertNull($event->invoiceNumber);
         $this->assertNull($event->paymentMethod);
         $this->assertCount(0, $event->taxSummary);
+        $this->assertNull($event->metadata);
+    }
+
+    public function test_it_carries_metadata_from_api_order_array(): void
+    {
+        $apiOrder = $this->makeApiOrder();
+        $apiOrder->metadata = ['fluentcart_transaction_id' => 'tx_42', 'source' => 'checkout'];
+
+        $event = OrderPaid::fromApiOrder($apiOrder);
+
+        $this->assertSame(
+            ['fluentcart_transaction_id' => 'tx_42', 'source' => 'checkout'],
+            $event->metadata,
+        );
+    }
+
+    public function test_it_normalizes_object_metadata_from_api_order(): void
+    {
+        $apiOrder = $this->makeApiOrder();
+        $apiOrder->metadata = (object) ['fluentcart_transaction_id' => 'tx_42'];
+
+        $event = OrderPaid::fromApiOrder($apiOrder);
+
+        $this->assertSame(['fluentcart_transaction_id' => 'tx_42'], $event->metadata);
+    }
+
+    private function makeApiOrder(): ApiOrder
+    {
+        $apiOrder = new ApiOrder(Mockery::mock(VatlyApiClient::class));
+        $apiOrder->id = 'ord_meta';
+        $apiOrder->customerId = 'cus_meta';
+        $apiOrder->total = new Money('EUR', '10.00');
+        $apiOrder->subtotal = new Money('EUR', '8.26');
+        $apiOrder->invoiceNumber = null;
+        $apiOrder->paymentMethod = null;
+        $apiOrder->status = 'paid';
+        $apiOrder->taxSummary = new TaxSummaryCollection([]);
+
+        return $apiOrder;
     }
 }

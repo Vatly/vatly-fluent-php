@@ -17,8 +17,12 @@ interface OrderWriter
 {
     /**
      * Store a new order from Vatly.
+     *
+     * Returns `null` when the driver legitimately cannot route the store
+     * (e.g. the metadata doesn't match any host record the driver knows
+     * how to persist against). Built-in reactions tolerate null.
      */
-    public function store(StoreOrderData $data): OrderInterface;
+    public function store(StoreOrderData $data): ?OrderInterface;
 
     /**
      * Update an existing order from Vatly.

@@ -30,6 +30,8 @@ class OrderPaid
         public string $currency,
         public ?string $invoiceNumber,
         public ?string $paymentMethod,
+        /** @var array<string, mixed>|null */
+        public ?array $metadata = null,
     ) {
         //
     }
@@ -45,6 +47,31 @@ class OrderPaid
             currency: $order->total->currency,
             invoiceNumber: $order->invoiceNumber,
             paymentMethod: $order->paymentMethod,
+            metadata: self::normalizeMetadata($order->metadata),
         );
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function normalizeMetadata(mixed $metadata): ?array
+    {
+        if ($metadata === null) {
+            return null;
+        }
+
+        if (is_array($metadata)) {
+            /** @var array<string, mixed> $metadata */
+            return $metadata;
+        }
+
+        if (is_object($metadata)) {
+            /** @var array<string, mixed> $decoded */
+            $decoded = (array) json_decode((string) json_encode($metadata), true);
+
+            return $decoded;
+        }
+
+        return null;
     }
 }

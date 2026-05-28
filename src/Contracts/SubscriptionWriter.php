@@ -18,8 +18,13 @@ interface SubscriptionWriter
 {
     /**
      * Store a new subscription from Vatly.
+     *
+     * Returns `null` when the driver legitimately cannot route the store
+     * (e.g. the metadata doesn't match any host record the driver knows
+     * how to persist against). Built-in reactions tolerate null and skip
+     * any follow-up dispatches that depend on a stored entity.
      */
-    public function store(StoreSubscriptionData $data): SubscriptionInterface;
+    public function store(StoreSubscriptionData $data): ?SubscriptionInterface;
 
     /**
      * Update an existing subscription from Vatly.

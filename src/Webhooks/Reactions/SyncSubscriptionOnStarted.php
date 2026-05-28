@@ -57,6 +57,10 @@ class SyncSubscriptionOnStarted implements WebhookReactionInterface
             hostCustomerId: $hostCustomerId,
         ));
 
+        if ($subscription === null) {
+            return;
+        }
+
         $this->dispatcher->dispatch(new LocalSubscriptionCreated($subscription));
     }
 }

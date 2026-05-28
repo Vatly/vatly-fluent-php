@@ -40,6 +40,7 @@ class StoreOrderOnPaid implements WebhookReactionInterface
                 paymentMethod: $event->paymentMethod,
                 subtotal: $event->subtotal,
                 taxSummary: $event->taxSummary,
+                metadata: $event->metadata,
             ));
 
             return;
@@ -59,6 +60,7 @@ class StoreOrderOnPaid implements WebhookReactionInterface
             subtotal: $event->subtotal,
             taxSummary: $event->taxSummary,
             hostCustomerId: $hostCustomerId,
+            metadata: $event->metadata,
         ));
     }
 }

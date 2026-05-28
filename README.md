@@ -93,7 +93,21 @@ Methods that need persistence or event dispatching (`customers()`, `webhookProce
 
 ## Step-by-step — building a framework driver
 
-A driver is a thin glue package (e.g. `vatly-laravel`) that supplies fluent with concrete implementations of its contracts and exposes the API surface idiomatically for its framework. Steps:
+A driver is a thin glue package (e.g. `vatly-laravel`) that supplies fluent with concrete implementations of its contracts and exposes the API surface idiomatically for its framework.
+
+### Webhook pipeline at a glance
+
+For incoming Vatly webhooks, fluent dispatches a typed event and runs a built-in reaction that calls back into your repos. A driver author only needs to implement the repo methods — the wiring is fixed:
+
+| Vatly event              | Dispatched event class                                            | Built-in reaction              | Repo method(s) called                                |
+|--------------------------|-------------------------------------------------------------------|--------------------------------|------------------------------------------------------|
+| `order.paid`             | `OrderPaid`                                                       | `StoreOrderOnPaid`             | `OrderWriter::store` (new) / `OrderWriter::update` (existing) |
+| `subscription.started`   | `SubscriptionStarted`                                             | `SyncSubscriptionOnStarted`    | `SubscriptionWriter::store` (new) / `::update` (existing) |
+| `subscription.cancelled` | `SubscriptionCanceledImmediately` / `SubscriptionCanceledWithGracePeriod` | `CancelSubscriptionOnCanceled` | `SubscriptionWriter::update`                         |
+
+Both `OrderWriter::store` and `SubscriptionWriter::store` may return `null` if your driver can't route the data (see the adapter recipe below). Built-in reactions tolerate null — `SyncSubscriptionOnStarted` skips its follow-up `LocalSubscriptionCreated` dispatch when store returns null.
+
+`additionalWebhookReactions` (on `WebhookProcessorFactory::create`) lets you append driver-specific reactions without losing the built-ins.
 
 ### 1. Implement `ConfigurationInterface`
 
@@ -226,6 +240,54 @@ class Order implements OrderInterface
 }
 ```
 
+<details>
+<summary><strong>What if my host already has Order / Subscription tables?</strong> — bolting onto an ecosystem plugin (FluentCart, PMPro, MemberPress, EDD…)</summary>
+
+This is the common case for ecosystem-plugin drivers: the host already models orders and subscriptions, and you can't (or shouldn't) add a parallel set. **Adapt, don't duplicate.** Write a thin wrapper that implements fluent's interface against the host's record:
+
+```php
+use Vatly\Fluent\Contracts\OrderInterface;
+
+final class FluentCartOrder implements OrderInterface
+{
+    public function __construct(private OrderTransaction $txn) {}
+
+    public function getVatlyId(): string       { return $this->txn->vatly_id; }
+    public function getStatus(): string        { return $this->txn->status; }
+    public function getInvoiceNumber(): ?string{ return $this->txn->invoice_no; }
+    public function getTotal(): int            { return (int) $this->txn->total; }
+    public function getCurrency(): string      { return $this->txn->currency; }
+    public function getPaymentMethod(): ?string{ return $this->txn->payment_method; }
+    public function isPaid(): bool             { return $this->txn->status === 'paid'; }
+}
+```
+
+Your `OrderRepositoryInterface::store` then routes the incoming `StoreOrderData` to the right host record — typically by reading `$data->metadata` to find a host-side id the original checkout stamped onto the Vatly order. When the routing legitimately doesn't match (metadata is missing, host record was deleted, etc.), return `null`:
+
+```php
+public function store(StoreOrderData $data): ?OrderInterface
+{
+    $txnId = $data->metadata['fluentcart_transaction_id'] ?? null;
+    if ($txnId === null) {
+        return null; // anonymous / audit-only — nothing to attach to
+    }
+
+    $txn = OrderTransaction::find($txnId);
+    if ($txn === null) {
+        return null;
+    }
+
+    $txn->vatly_id = $data->vatlyId;
+    $txn->save();
+
+    return new FluentCartOrder($txn);
+}
+```
+
+Same shape for `SubscriptionRepositoryInterface::store`. Built-in reactions tolerate null returns.
+
+</details>
+
 ### 5. Implement the three repository contracts
 
 Each entity-side contract has three methods. See [src/Contracts](src/Contracts) for signatures.
@@ -256,6 +318,8 @@ public function store(StoreSubscriptionData $data): SubscriptionInterface
 ```
 
 > Each entity-side repo is also exposed as a Reader / Writer pair (`SubscriptionReader` + `SubscriptionWriter`, etc.). The combined interface extends both. Typehint the narrowest role you actually need.
+
+> **If your repo needs to call back into the SDK** — e.g. `GetOrder` to read fresh metadata from a partial webhook payload — don't inject `Vatly` directly. `Vatly` is being constructed *with* your repo, so a direct dependency is circular. Instead, inject a lazy resolver (your host's container, a singleton accessor, or a closure that returns `Vatly`) and resolve at call time.
 
 ### 6. Implement `EventDispatcherInterface`
 
