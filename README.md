@@ -376,7 +376,7 @@ In [src/Contracts](src/Contracts):
 - `WebhookCallRepositoryInterface` — webhook audit log (write-only by nature)
 - `EventDispatcherInterface` — fire domain events
 - `ConfigurationInterface` — API key, URL, version, webhook secret, redirect defaults
-- `WebhookReactionInterface` — extension point for adding your own webhook reactions
+- `WebhookReactionInterface` — extension point for adding your own webhook reactions. Compose multiple via `Webhooks\Reactions\WebhookReactionChain` (variadic constructor; the chain itself implements the same interface).
 
 ## Domain events
 
