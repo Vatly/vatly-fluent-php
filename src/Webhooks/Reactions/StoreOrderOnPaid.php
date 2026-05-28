@@ -46,8 +46,14 @@ class StoreOrderOnPaid implements WebhookReactionInterface
             return;
         }
 
-        $hostCustomerId = $this->bindings->hostCustomerIdFor($event->customerId);
-        $this->bindings->record($event->customerId);
+        // Order may be unattributed (no Vatly customer id) — skip bindings rather
+        // than write/lookup against an empty string, which would either create an
+        // invalid binding row or trip a non-empty-id constraint downstream.
+        $hostCustomerId = null;
+        if ($event->customerId !== '') {
+            $hostCustomerId = $this->bindings->hostCustomerIdFor($event->customerId);
+            $this->bindings->record($event->customerId);
+        }
 
         $this->orders->store(new StoreOrderData(
             vatlyId: $event->orderId,

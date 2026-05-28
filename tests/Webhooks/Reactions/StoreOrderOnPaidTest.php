@@ -94,6 +94,34 @@ class StoreOrderOnPaidTest extends TestCase
         $reaction->handle($event);
     }
 
+    public function test_it_skips_bindings_when_customer_id_is_empty(): void
+    {
+        $event = new OrderPaid(
+            customerId: '',
+            orderId: 'ord_anon',
+            total: 9900,
+            subtotal: 8182,
+            taxSummary: TaxSummary::empty(),
+            currency: 'EUR',
+            invoiceNumber: 'INV-001',
+            paymentMethod: 'card',
+        );
+
+        $repo = Mockery::mock(OrderRepositoryInterface::class);
+        $repo->shouldReceive('findByVatlyId')->with('ord_anon')->once()->andReturnNull();
+        $repo->shouldReceive('store')->once()->with(Mockery::on(
+            fn (StoreOrderData $data) => $data->customerId === ''
+                && $data->hostCustomerId === null
+                && $data->status === 'paid',
+        ))->andReturn(Mockery::mock(OrderInterface::class));
+
+        $bindings = Mockery::mock(CustomerBindingRepository::class);
+        $bindings->shouldNotReceive('hostCustomerIdFor');
+        $bindings->shouldNotReceive('record');
+
+        (new StoreOrderOnPaid($repo, $bindings))->handle($event);
+    }
+
     public function test_it_plumbs_metadata_through_store_and_update_paths(): void
     {
         $metadata = ['fluentcart_transaction_id' => 'tx_42'];
