@@ -11,9 +11,9 @@ use Vatly\API\Types\Link;
 use Vatly\API\VatlyApiClient;
 use Vatly\Fluent\Actions\GetOrder;
 use Vatly\Fluent\Contracts\OrderInterface;
-use Vatly\Fluent\OrderHandle;
+use Vatly\Fluent\Order;
 
-class OrderHandleTest extends TestCase
+class OrderTest extends TestCase
 {
     public function test_state_accessors_delegate_to_the_underlying_order(): void
     {
@@ -26,7 +26,7 @@ class OrderHandleTest extends TestCase
         $order->shouldReceive('getPaymentMethod')->andReturn('creditcard');
         $order->shouldReceive('isPaid')->andReturn(true);
 
-        $handle = new OrderHandle(
+        $handle = new Order(
             order: $order,
             getOrderAction: Mockery::mock(GetOrder::class),
         );
@@ -51,7 +51,7 @@ class OrderHandleTest extends TestCase
         $order = Mockery::mock(OrderInterface::class);
         $order->shouldReceive('getVatlyId')->andReturn('order_abc');
 
-        $handle = new OrderHandle(order: $order, getOrderAction: $getOrder);
+        $handle = new Order(order: $order, getOrderAction: $getOrder);
 
         $this->assertSame('https://invoices.vatly.test/inv_123.pdf', $handle->invoiceUrl());
     }
@@ -66,7 +66,7 @@ class OrderHandleTest extends TestCase
         $order = Mockery::mock(OrderInterface::class);
         $order->shouldReceive('getVatlyId')->andReturn('order_abc');
 
-        $handle = new OrderHandle(order: $order, getOrderAction: $getOrder);
+        $handle = new Order(order: $order, getOrderAction: $getOrder);
 
         $this->assertNull($handle->invoiceUrl());
     }

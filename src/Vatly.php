@@ -14,8 +14,9 @@ use Vatly\Fluent\Actions\GetSubscription;
 use Vatly\Fluent\Actions\ResumeSubscription;
 use Vatly\Fluent\Actions\SwapSubscriptionPlan;
 use Vatly\Fluent\Actions\UpdateSubscriptionBilling;
+use Vatly\Fluent\Builders\CheckoutBuilder;
+use Vatly\Fluent\Builders\SubscriptionBuilder;
 use Vatly\Fluent\Configuration\ArrayConfiguration;
-use Vatly\Fluent\Contracts\BillableInterface;
 use Vatly\Fluent\Contracts\OrderInterface;
 use Vatly\Fluent\Contracts\SubscriptionInterface;
 use Vatly\Fluent\Exceptions\IncompleteWiring;
@@ -30,7 +31,7 @@ use Vatly\Fluent\Webhooks\WebhookProcessorFactory;
  * Drivers (Laravel, etc.) construct a single instance — typically a singleton
  * — from a {@see Wiring} DTO that supplies the configuration and the driver's
  * concrete contract implementations (repositories, event dispatcher). Every
- * other fluent service (`BillableFactory`, `SubscriptionHandle`, `OrderHandle`,
+ * other fluent service (`Customers`, `Subscription`, `Order`,
  * `WebhookProcessor`, etc.) resolves lazily through methods on this class.
  *
  * For non-driver scripts that only need to hit the API, see {@see self::apiOnly()}.
@@ -51,7 +52,7 @@ class Vatly
     private ?UpdateSubscriptionBilling $updateSubscriptionBilling = null;
 
     // Lazy-loaded composed services
-    private ?BillableFactory $billableFactory = null;
+    private ?Customers $customers = null;
     private ?WebhookProcessor $webhookProcessor = null;
     private ?WebhookEventFactory $webhookEventFactory = null;
     private ?SignatureVerifier $signatureVerifier = null;
@@ -115,52 +116,56 @@ class Vatly
                 ?? throw IncompleteWiring::missing('webhookCalls', 'WebhookProcessor'),
             dispatcher: $this->wiring->events
                 ?? throw IncompleteWiring::missing('events', 'WebhookProcessor'),
+            bindings: $this->wiring->customerBindings
+                ?? throw IncompleteWiring::missing('customerBindings', 'WebhookProcessor'),
             getOrder: $this->getOrder(),
             additionalReactions: $this->wiring->additionalWebhookReactions,
         );
     }
 
-    // --- Billable composition ---
+    // --- Customer composition ---
 
-    public function billableFactory(): BillableFactory
+    public function customers(): Customers
     {
-        return $this->billableFactory ??= new BillableFactory(
-            subscriptions: $this->wiring->subscriptions
-                ?? throw IncompleteWiring::missing('subscriptions', 'BillableFactory'),
-            customers: $this->wiring->customers
-                ?? throw IncompleteWiring::missing('customers', 'BillableFactory'),
-            orders: $this->wiring->orders
-                ?? throw IncompleteWiring::missing('orders', 'BillableFactory'),
-            config: $this->wiring->config,
-            createCheckoutAction: $this->createCheckout(),
-            createCustomerAction: $this->createCustomer(),
-            getCustomerAction: $this->getCustomer(),
-            getOrderAction: $this->getOrder(),
-            getSubscriptionAction: $this->getSubscription(),
-            swapSubscriptionPlanAction: $this->swapSubscriptionPlan(),
-            cancelSubscriptionAction: $this->cancelSubscription(),
-            resumeSubscriptionAction: $this->resumeSubscription(),
-            updateBillingAction: $this->updateSubscriptionBilling(),
+        return $this->customers ??= new Customers(
+            createCustomer: $this->createCustomer(),
+            getCustomer: $this->getCustomer(),
+            bindings: $this->wiring->customerBindings
+                ?? throw IncompleteWiring::missing('customerBindings', 'Customers'),
         );
     }
 
-    public function billable(BillableInterface $owner): Billable
+    // --- Builders (per-call construction; no caching) ---
+
+    public function checkoutBuilder(CustomerProfile $profile): CheckoutBuilder
     {
-        return $this->billableFactory()->forOwner($owner);
+        return new CheckoutBuilder(
+            customer: $profile,
+            createCheckout: $this->createCheckout(),
+        );
+    }
+
+    public function subscriptionBuilder(CustomerProfile $profile): SubscriptionBuilder
+    {
+        return new SubscriptionBuilder(
+            config: $this->wiring->config,
+            customer: $profile,
+            checkoutBuilder: $this->checkoutBuilder($profile),
+        );
     }
 
     /**
-     * Build a {@see SubscriptionHandle} wrapping a persistent subscription.
+     * Build a {@see Subscription} wrapping a persistent subscription.
      *
      * Drivers use this so their Eloquent (or equivalent) Subscription model
      * can expose Cashier-style operation methods that delegate here.
      */
-    public function subscriptionHandle(SubscriptionInterface $subscription): SubscriptionHandle
+    public function subscription(SubscriptionInterface $subscription): Subscription
     {
-        return new SubscriptionHandle(
+        return new Subscription(
             subscription: $subscription,
             subscriptions: $this->wiring->subscriptions
-                ?? throw IncompleteWiring::missing('subscriptions', 'SubscriptionHandle'),
+                ?? throw IncompleteWiring::missing('subscriptions', 'Subscription'),
             swapAction: $this->swapSubscriptionPlan(),
             cancelAction: $this->cancelSubscription(),
             resumeAction: $this->resumeSubscription(),
@@ -170,14 +175,14 @@ class Vatly
     }
 
     /**
-     * Build an {@see OrderHandle} wrapping a persistent order.
+     * Build an {@see Order} wrapping a persistent order.
      *
      * Drivers use this so their Eloquent (or equivalent) Order model can
      * expose operation methods (e.g. `invoiceUrl()`) that delegate here.
      */
-    public function orderHandle(OrderInterface $order): OrderHandle
+    public function order(OrderInterface $order): Order
     {
-        return new OrderHandle(
+        return new Order(
             order: $order,
             getOrderAction: $this->getOrder(),
         );

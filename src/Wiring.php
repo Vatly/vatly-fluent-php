@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Vatly\Fluent;
 
 use Vatly\Fluent\Contracts\ConfigurationInterface;
-use Vatly\Fluent\Contracts\CustomerRepositoryInterface;
+use Vatly\Fluent\Contracts\CustomerBindingRepository;
 use Vatly\Fluent\Contracts\EventDispatcherInterface;
 use Vatly\Fluent\Contracts\OrderRepositoryInterface;
 use Vatly\Fluent\Contracts\SubscriptionRepositoryInterface;
@@ -33,10 +33,10 @@ final class Wiring
     public function __construct(
         public readonly ConfigurationInterface $config,
         public readonly ?SubscriptionRepositoryInterface $subscriptions = null,
-        public readonly ?CustomerRepositoryInterface $customers = null,
         public readonly ?OrderRepositoryInterface $orders = null,
         public readonly ?WebhookCallRepositoryInterface $webhookCalls = null,
         public readonly ?EventDispatcherInterface $events = null,
+        public readonly ?CustomerBindingRepository $customerBindings = null,
         public readonly array $additionalWebhookReactions = [],
     ) {
         //

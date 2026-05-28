@@ -6,20 +6,21 @@ namespace Vatly\Fluent\Tests;
 
 use Mockery;
 use Vatly\Fluent\Actions\CreateCustomer;
-use Vatly\Fluent\Billable;
-use Vatly\Fluent\BillableFactory;
+use Vatly\Fluent\Builders\CheckoutBuilder;
+use Vatly\Fluent\Builders\SubscriptionBuilder;
 use Vatly\Fluent\Configuration\ArrayConfiguration;
-use Vatly\Fluent\Contracts\BillableInterface;
-use Vatly\Fluent\Contracts\CustomerRepositoryInterface;
+use Vatly\Fluent\Contracts\CustomerBindingRepository;
 use Vatly\Fluent\Contracts\EventDispatcherInterface;
 use Vatly\Fluent\Contracts\OrderInterface;
 use Vatly\Fluent\Contracts\OrderRepositoryInterface;
 use Vatly\Fluent\Contracts\SubscriptionInterface;
 use Vatly\Fluent\Contracts\SubscriptionRepositoryInterface;
 use Vatly\Fluent\Contracts\WebhookCallRepositoryInterface;
+use Vatly\Fluent\Customers;
+use Vatly\Fluent\CustomerProfile;
 use Vatly\Fluent\Exceptions\IncompleteWiring;
-use Vatly\Fluent\OrderHandle;
-use Vatly\Fluent\SubscriptionHandle;
+use Vatly\Fluent\Order;
+use Vatly\Fluent\Subscription;
 use Vatly\Fluent\Vatly;
 use Vatly\Fluent\Webhooks\WebhookProcessor;
 use Vatly\Fluent\Wiring;
@@ -60,51 +61,23 @@ class VatlyTest extends TestCase
         $this->assertSame($vatly->getOrder(), $vatly->getOrder());
     }
 
-    public function test_billable_factory_is_cached(): void
+    public function test_customers_helper_is_cached(): void
     {
         $vatly = $this->fullyWiredVatly();
 
-        $this->assertSame($vatly->billableFactory(), $vatly->billableFactory());
+        $this->assertSame($vatly->customers(), $vatly->customers());
     }
 
     // --- IncompleteWiring on missing dependencies ---
 
-    public function test_billable_factory_throws_when_subscriptions_missing(): void
+    public function test_customers_throws_when_bindings_missing(): void
     {
         $vatly = Vatly::apiOnly('test_abcdefghijklmnopqrstuvwxyz');
 
         $this->expectException(IncompleteWiring::class);
-        $this->expectExceptionMessageMatches("/'BillableFactory'.*'subscriptions'/");
+        $this->expectExceptionMessageMatches("/'Customers'.*'customerBindings'/");
 
-        $vatly->billableFactory();
-    }
-
-    public function test_billable_factory_throws_when_customers_missing(): void
-    {
-        $vatly = new Vatly(new Wiring(
-            config: new ArrayConfiguration(['api_key' => 'test_abcdefghijklmnopqrstuvwxyz']),
-            subscriptions: Mockery::mock(SubscriptionRepositoryInterface::class),
-            orders: Mockery::mock(OrderRepositoryInterface::class),
-        ));
-
-        $this->expectException(IncompleteWiring::class);
-        $this->expectExceptionMessageMatches("/'customers'/");
-
-        $vatly->billableFactory();
-    }
-
-    public function test_billable_factory_throws_when_orders_missing(): void
-    {
-        $vatly = new Vatly(new Wiring(
-            config: new ArrayConfiguration(['api_key' => 'test_abcdefghijklmnopqrstuvwxyz']),
-            subscriptions: Mockery::mock(SubscriptionRepositoryInterface::class),
-            customers: Mockery::mock(CustomerRepositoryInterface::class),
-        ));
-
-        $this->expectException(IncompleteWiring::class);
-        $this->expectExceptionMessageMatches("/'orders'/");
-
-        $vatly->billableFactory();
+        $vatly->customers();
     }
 
     public function test_webhook_processor_throws_when_events_dispatcher_missing(): void
@@ -137,25 +110,53 @@ class VatlyTest extends TestCase
         $vatly->webhookProcessor();
     }
 
-    // --- Happy-path resolution ---
-
-    public function test_billable_returns_orchestrator_for_owner(): void
+    public function test_webhook_processor_throws_when_customer_bindings_missing(): void
     {
-        $vatly = $this->fullyWiredVatly();
+        $vatly = new Vatly(new Wiring(
+            config: new ArrayConfiguration(['api_key' => 'test_abcdefghijklmnopqrstuvwxyz']),
+            subscriptions: Mockery::mock(SubscriptionRepositoryInterface::class),
+            orders: Mockery::mock(OrderRepositoryInterface::class),
+            webhookCalls: Mockery::mock(WebhookCallRepositoryInterface::class),
+            events: Mockery::mock(EventDispatcherInterface::class),
+        ));
 
-        $owner = Mockery::mock(BillableInterface::class);
+        $this->expectException(IncompleteWiring::class);
+        $this->expectExceptionMessageMatches("/'WebhookProcessor'.*'customerBindings'/");
 
-        $billable = $vatly->billable($owner);
-
-        $this->assertInstanceOf(Billable::class, $billable);
-        $this->assertSame($owner, $billable->owner());
+        $vatly->webhookProcessor();
     }
 
-    public function test_billable_factory_is_built_from_wiring(): void
+    // --- Happy-path resolution ---
+
+    public function test_customers_returns_helper_from_wiring(): void
     {
         $vatly = $this->fullyWiredVatly();
 
-        $this->assertInstanceOf(BillableFactory::class, $vatly->billableFactory());
+        $this->assertInstanceOf(Customers::class, $vatly->customers());
+    }
+
+    public function test_checkout_builder_is_constructed_per_call(): void
+    {
+        $vatly = Vatly::apiOnly('test_abcdefghijklmnopqrstuvwxyz');
+        $profile = new CustomerProfile(vatlyId: 'cus_abc');
+
+        $first = $vatly->checkoutBuilder($profile);
+        $second = $vatly->checkoutBuilder($profile);
+
+        $this->assertInstanceOf(CheckoutBuilder::class, $first);
+        $this->assertNotSame($first, $second);
+    }
+
+    public function test_subscription_builder_is_constructed_per_call(): void
+    {
+        $vatly = Vatly::apiOnly('test_abcdefghijklmnopqrstuvwxyz');
+        $profile = new CustomerProfile(vatlyId: 'cus_abc');
+
+        $first = $vatly->subscriptionBuilder($profile);
+        $second = $vatly->subscriptionBuilder($profile);
+
+        $this->assertInstanceOf(SubscriptionBuilder::class, $first);
+        $this->assertNotSame($first, $second);
     }
 
     public function test_webhook_processor_is_built_from_wiring(): void
@@ -172,10 +173,10 @@ class VatlyTest extends TestCase
         $vatly = new Vatly(new Wiring(
             config: new ArrayConfiguration(['api_key' => 'test_abcdefghijklmnopqrstuvwxyz']),
             subscriptions: Mockery::mock(SubscriptionRepositoryInterface::class),
-            customers: Mockery::mock(CustomerRepositoryInterface::class),
             orders: Mockery::mock(OrderRepositoryInterface::class),
             webhookCalls: Mockery::mock(WebhookCallRepositoryInterface::class),
             events: Mockery::mock(EventDispatcherInterface::class),
+            customerBindings: Mockery::mock(CustomerBindingRepository::class),
             additionalWebhookReactions: [$customReaction],
         ));
 
@@ -195,9 +196,9 @@ class VatlyTest extends TestCase
         $vatly = $this->fullyWiredVatly();
         $subscription = Mockery::mock(SubscriptionInterface::class);
 
-        $handle = $vatly->subscriptionHandle($subscription);
+        $handle = $vatly->subscription($subscription);
 
-        $this->assertInstanceOf(SubscriptionHandle::class, $handle);
+        $this->assertInstanceOf(Subscription::class, $handle);
         $this->assertSame($subscription, $handle->model());
     }
 
@@ -206,9 +207,9 @@ class VatlyTest extends TestCase
         $vatly = Vatly::apiOnly('test_abcdefghijklmnopqrstuvwxyz');
 
         $this->expectException(IncompleteWiring::class);
-        $this->expectExceptionMessageMatches("/'SubscriptionHandle'.*'subscriptions'/");
+        $this->expectExceptionMessageMatches("/'Subscription'.*'subscriptions'/");
 
-        $vatly->subscriptionHandle(Mockery::mock(SubscriptionInterface::class));
+        $vatly->subscription(Mockery::mock(SubscriptionInterface::class));
     }
 
     public function test_order_handle_wraps_the_given_order(): void
@@ -216,9 +217,9 @@ class VatlyTest extends TestCase
         $vatly = Vatly::apiOnly('test_abcdefghijklmnopqrstuvwxyz');
         $order = Mockery::mock(OrderInterface::class);
 
-        $handle = $vatly->orderHandle($order);
+        $handle = $vatly->order($order);
 
-        $this->assertInstanceOf(OrderHandle::class, $handle);
+        $this->assertInstanceOf(Order::class, $handle);
         $this->assertSame($order, $handle->model());
     }
 
@@ -227,10 +228,10 @@ class VatlyTest extends TestCase
         return new Vatly(new Wiring(
             config: new ArrayConfiguration(['api_key' => 'test_abcdefghijklmnopqrstuvwxyz']),
             subscriptions: Mockery::mock(SubscriptionRepositoryInterface::class),
-            customers: Mockery::mock(CustomerRepositoryInterface::class),
             orders: Mockery::mock(OrderRepositoryInterface::class),
             webhookCalls: Mockery::mock(WebhookCallRepositoryInterface::class),
             events: Mockery::mock(EventDispatcherInterface::class),
+            customerBindings: Mockery::mock(CustomerBindingRepository::class),
         ));
     }
 }

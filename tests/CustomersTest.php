@@ -1,0 +1,158 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Vatly\Fluent\Tests;
+
+use Mockery;
+use Vatly\API\Resources\Customer as ApiCustomer;
+use Vatly\API\VatlyApiClient;
+use Vatly\Fluent\Actions\CreateCustomer;
+use Vatly\Fluent\Actions\GetCustomer;
+use Vatly\Fluent\Contracts\CustomerBindingRepository;
+use Vatly\Fluent\CustomerProfile;
+use Vatly\Fluent\Customers;
+use Vatly\Fluent\Exceptions\CustomerAlreadyBound;
+
+class CustomersTest extends TestCase
+{
+    public function test_create_for_creates_customer_and_binds_to_host(): void
+    {
+        $apiCustomer = $this->makeApiCustomer('cus_new');
+
+        $createCustomer = Mockery::mock(CreateCustomer::class);
+        $createCustomer->shouldReceive('execute')
+            ->once()
+            ->with(['email' => 'host@example.test', 'name' => 'Host Name'])
+            ->andReturn($apiCustomer);
+
+        $bindings = Mockery::mock(CustomerBindingRepository::class);
+        $bindings->shouldReceive('vatlyIdFor')->with('host_1')->once()->andReturnNull();
+        $bindings->shouldReceive('bind')->with('cus_new', 'host_1')->once();
+
+        $customers = new Customers($createCustomer, Mockery::mock(GetCustomer::class), $bindings);
+        $profile = new CustomerProfile(email: 'host@example.test', name: 'Host Name');
+
+        $result = $customers->createFor('host_1', $profile);
+
+        $this->assertSame($apiCustomer, $result);
+    }
+
+    public function test_create_for_throws_when_host_is_already_bound(): void
+    {
+        $bindings = Mockery::mock(CustomerBindingRepository::class);
+        $bindings->shouldReceive('vatlyIdFor')->with('host_1')->once()->andReturn('cus_existing');
+
+        $createCustomer = Mockery::mock(CreateCustomer::class);
+        $createCustomer->shouldNotReceive('execute');
+
+        $customers = new Customers($createCustomer, Mockery::mock(GetCustomer::class), $bindings);
+
+        $this->expectException(CustomerAlreadyBound::class);
+        $this->expectExceptionMessageMatches('/host_1.*cus_existing/');
+
+        $customers->createFor('host_1', new CustomerProfile(email: 'host@example.test'));
+    }
+
+    public function test_create_unattributed_records_without_binding_a_host(): void
+    {
+        $apiCustomer = $this->makeApiCustomer('cus_anon');
+
+        $createCustomer = Mockery::mock(CreateCustomer::class);
+        $createCustomer->shouldReceive('execute')
+            ->once()
+            ->with(['email' => 'anon@example.test'])
+            ->andReturn($apiCustomer);
+
+        $bindings = Mockery::mock(CustomerBindingRepository::class);
+        $bindings->shouldReceive('record')->with('cus_anon')->once();
+        $bindings->shouldNotReceive('bind');
+
+        $customers = new Customers($createCustomer, Mockery::mock(GetCustomer::class), $bindings);
+
+        $result = $customers->createUnattributed(new CustomerProfile(email: 'anon@example.test'));
+
+        $this->assertSame($apiCustomer, $result);
+    }
+
+    public function test_attribute_delegates_to_bindings(): void
+    {
+        $bindings = Mockery::mock(CustomerBindingRepository::class);
+        $bindings->shouldReceive('bind')->with('cus_x', 'host_x')->once();
+
+        $customers = new Customers(
+            Mockery::mock(CreateCustomer::class),
+            Mockery::mock(GetCustomer::class),
+            $bindings,
+        );
+
+        $customers->attribute('cus_x', 'host_x');
+    }
+
+    public function test_find_by_host_id_returns_customer_when_bound(): void
+    {
+        $apiCustomer = $this->makeApiCustomer('cus_bound');
+
+        $bindings = Mockery::mock(CustomerBindingRepository::class);
+        $bindings->shouldReceive('vatlyIdFor')->with('host_1')->once()->andReturn('cus_bound');
+
+        $getCustomer = Mockery::mock(GetCustomer::class);
+        $getCustomer->shouldReceive('execute')->with('cus_bound')->once()->andReturn($apiCustomer);
+
+        $customers = new Customers(Mockery::mock(CreateCustomer::class), $getCustomer, $bindings);
+
+        $this->assertSame($apiCustomer, $customers->findByHostId('host_1'));
+    }
+
+    public function test_find_by_host_id_returns_null_when_unbound(): void
+    {
+        $bindings = Mockery::mock(CustomerBindingRepository::class);
+        $bindings->shouldReceive('vatlyIdFor')->with('host_unknown')->once()->andReturnNull();
+
+        $getCustomer = Mockery::mock(GetCustomer::class);
+        $getCustomer->shouldNotReceive('execute');
+
+        $customers = new Customers(Mockery::mock(CreateCustomer::class), $getCustomer, $bindings);
+
+        $this->assertNull($customers->findByHostId('host_unknown'));
+    }
+
+    public function test_find_by_vatly_id_proxies_to_the_action(): void
+    {
+        $apiCustomer = $this->makeApiCustomer('cus_zzz');
+
+        $getCustomer = Mockery::mock(GetCustomer::class);
+        $getCustomer->shouldReceive('execute')->with('cus_zzz')->once()->andReturn($apiCustomer);
+
+        $customers = new Customers(
+            Mockery::mock(CreateCustomer::class),
+            $getCustomer,
+            Mockery::mock(CustomerBindingRepository::class),
+        );
+
+        $this->assertSame($apiCustomer, $customers->findByVatlyId('cus_zzz'));
+    }
+
+    public function test_host_id_for_proxies_to_bindings(): void
+    {
+        $bindings = Mockery::mock(CustomerBindingRepository::class);
+        $bindings->shouldReceive('hostIdFor')->with('cus_a')->once()->andReturn('host_a');
+
+        $customers = new Customers(
+            Mockery::mock(CreateCustomer::class),
+            Mockery::mock(GetCustomer::class),
+            $bindings,
+        );
+
+        $this->assertSame('host_a', $customers->hostIdFor('cus_a'));
+    }
+
+    private function makeApiCustomer(string $id): ApiCustomer
+    {
+        $client = Mockery::mock(VatlyApiClient::class);
+        $customer = new ApiCustomer($client);
+        $customer->id = $id;
+
+        return $customer;
+    }
+}

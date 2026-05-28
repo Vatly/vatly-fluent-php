@@ -17,9 +17,9 @@ use Vatly\Fluent\Actions\SwapSubscriptionPlan;
 use Vatly\Fluent\Contracts\SubscriptionInterface;
 use Vatly\Fluent\Contracts\SubscriptionRepositoryInterface;
 use Vatly\Fluent\Data\UpdateSubscriptionData;
-use Vatly\Fluent\SubscriptionHandle;
+use Vatly\Fluent\Subscription;
 
-class SubscriptionHandleTest extends TestCase
+class SubscriptionTest extends TestCase
 {
     public function test_state_accessors_delegate_to_the_wrapped_subscription(): void
     {
@@ -263,8 +263,8 @@ class SubscriptionHandleTest extends TestCase
         ?ResumeSubscription $resumeAction = null,
         ?GetSubscription $getSubscriptionAction = null,
         ?UpdateSubscriptionBilling $updateBillingAction = null,
-    ): SubscriptionHandle {
-        return new SubscriptionHandle(
+    ): Subscription {
+        return new Subscription(
             subscription: $subscription ?? Mockery::mock(SubscriptionInterface::class),
             subscriptions: $subscriptions ?? Mockery::mock(SubscriptionRepositoryInterface::class),
             swapAction: $swapAction ?? Mockery::mock(SwapSubscriptionPlan::class),

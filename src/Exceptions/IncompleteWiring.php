@@ -11,7 +11,7 @@ use RuntimeException;
  * required dependency was not provided to the {@see \Vatly\Fluent\Wiring} DTO.
  *
  * Examples:
- * - calling `Vatly::billableFactory()` without a repository in the wiring.
+ * - calling `Vatly::customers()` without a `customerBindings` impl in the wiring.
  * - calling `Vatly::webhookProcessor()` without an event dispatcher.
  *
  * The exception names the missing dependency and the feature being requested

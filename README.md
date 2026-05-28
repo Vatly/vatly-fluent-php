@@ -24,22 +24,21 @@ Framework-agnostic SDK for [Vatly](https://vatly.com). Sits between `vatly/vatly
 | Concern | `vatly-api-php` | `vatly-fluent-php` |
 | --- | --- | --- |
 | Make API calls | ✓ | ✓ (via `vatly-api-php` underneath) |
-| Domain model (`Billable`, `SubscriptionHandle`, `OrderHandle`) | — | ✓ |
-| Repository contracts for persisting subscriptions / orders / customers | — | ✓ |
+| Domain model (`Subscription`, `Order`, `Customers` helper) | — | ✓ |
+| Repository contracts for persisting subscriptions / orders / customer bindings | — | ✓ |
 | Webhook signature verification | ✓ (low-level) | ✓ (full pipeline incl. parsing, reactions, dispatch) |
 | Typed domain events (`OrderPaid`, `SubscriptionStarted`, …) | — | ✓ |
 | Builders for checkout / subscription flows | — | ✓ |
 | Single composition root (`Vatly`) that wires everything from contracts | — | ✓ |
-| Cashier-style operations (`->subscribe()`, `->cancel()`, …) | — | ✓ |
 
 If you only need to fetch a customer or create a checkout from a script, `vatly-api-php` is enough. As soon as you want webhook handling, subscription state tracking, or anything resembling an integration, use fluent.
 
 ## Installation
 
-Requires PHP 8.2+ and a Vatly API key.
+Requires PHP 8.1+ and a Vatly API key.
 
 ```bash
-composer require vatly/vatly-fluent-php:v0.7.0-alpha.1
+composer require vatly/vatly-fluent-php:v0.8.0-alpha.1
 ```
 
 Pin to an exact version during alpha.
@@ -88,7 +87,7 @@ For one-off scripts that just hit the API. No persistence, no webhook processing
    ));
    ```
 
-Methods that need persistence or event dispatching (`billableFactory()`, `webhookProcessor()`, `subscriptionHandle()`, `orderHandle()`) throw `IncompleteWiring` in api-only mode. Use the driver guide below if you need them.
+Methods that need persistence or event dispatching (`customers()`, `webhookProcessor()`, `subscription()`, `order()`) throw `IncompleteWiring` in api-only mode. Use the driver guide below if you need them.
 
 ---
 
@@ -128,24 +127,45 @@ final class SymfonyVatlyConfig implements ConfigurationInterface
 }
 ```
 
-### 2. Implement `BillableInterface` on your owner model
+### 2. Implement `CustomerBindingRepository`
 
-The "owner" is whatever your app treats as the billing customer (User, Organization, Tenant, …).
+The binding repository links a Vatly customer id (`cus_...`) to whatever id your app uses for its billing entity (User, Organization, Tenant, …). Fluent never touches your host model directly — it only asks "what is the Vatly id for this host id?" and the reverse.
 
 ```php
-use Vatly\Fluent\Contracts\BillableInterface;
+use Vatly\Fluent\Contracts\CustomerBindingRepository;
 
-class User implements BillableInterface
+final class SymfonyCustomerBindingRepository implements CustomerBindingRepository
 {
-    public function getVatlyId(): ?string { return $this->vatly_id; }
-    public function setVatlyId(string $id): void { $this->vatly_id = $id; }
-    public function hasVatlyId(): bool { return $this->vatly_id !== null; }
-    public function getVatlyEmail(): ?string { return $this->email; }
-    public function getVatlyName(): ?string { return $this->name; }
+    public function __construct(private Connection $db) {}
+
+    public function bind(string $vatlyId, string $hostId): void
+    {
+        $this->db->executeStatement(
+            'UPDATE users SET vatly_id = ? WHERE id = ?',
+            [$vatlyId, $hostId],
+        );
+    }
+
+    public function record(string $vatlyId): void
+    {
+        // No-op: rows arrive with a null host id via the anonymous-checkout flow
+        // and get attributed later. Override if your driver tracks unattributed
+        // customers in a join table instead.
+    }
+
+    public function hostIdFor(string $vatlyId): ?string
+    {
+        return $this->db->fetchOne('SELECT id FROM users WHERE vatly_id = ?', [$vatlyId]) ?: null;
+    }
+
+    public function vatlyIdFor(string $hostId): ?string
+    {
+        return $this->db->fetchOne('SELECT vatly_id FROM users WHERE id = ?', [$hostId]) ?: null;
+    }
 }
 ```
 
-> Can't modify the owner class? See [docs/recipes/cannot-customize-owner-model.md](docs/recipes/cannot-customize-owner-model.md) for the adapter pattern + two storage options.
+> Can't add a column to the owner table? Implement the four methods against a dedicated join table instead. See [docs/recipes/cannot-customize-owner-model.md](docs/recipes/cannot-customize-owner-model.md).
 
 ### 3. Implement your `SubscriptionInterface` model
 
@@ -154,7 +174,6 @@ State accessors + the derived predicates. Use `DerivesSubscriptionState` to get 
 ```php
 use DateTimeInterface;
 use Vatly\Fluent\Concerns\DerivesSubscriptionState;
-use Vatly\Fluent\Contracts\BillableInterface;
 use Vatly\Fluent\Contracts\SubscriptionInterface;
 
 class Subscription implements SubscriptionInterface
@@ -168,14 +187,12 @@ class Subscription implements SubscriptionInterface
     public function getName(): string { /* ... */ }
     public function getQuantity(): int { /* ... */ }
     public function getEndsAt(): ?DateTimeInterface { /* ... */ }
-    public function getOwner(): BillableInterface { /* ... */ }
 }
 ```
 
 ### 4. Implement your `OrderInterface` model
 
 ```php
-use Vatly\Fluent\Contracts\BillableInterface;
 use Vatly\Fluent\Contracts\OrderInterface;
 
 class Order implements OrderInterface
@@ -186,23 +203,40 @@ class Order implements OrderInterface
     public function getTotal(): int { /* ... */ }
     public function getCurrency(): string { /* ... */ }
     public function getPaymentMethod(): ?string { /* ... */ }
-    public function getOwner(): BillableInterface { /* ... */ }
     public function isPaid(): bool { return $this->status === 'paid'; }
 }
 ```
 
-### 5. Implement the four repository contracts
+### 5. Implement the three repository contracts
 
-Each contract is small (3–5 methods). See [src/Contracts](src/Contracts) for signatures.
+Each entity-side contract has three methods. See [src/Contracts](src/Contracts) for signatures.
 
-- `CustomerRepositoryInterface` — find/save the billable owner by Vatly id
-- `SubscriptionRepositoryInterface` — find / store / update local subscriptions
-- `OrderRepositoryInterface` — find / store / update local orders
+- `SubscriptionRepositoryInterface` — `findByVatlyId`, `store`, `update`
+- `OrderRepositoryInterface` — `findByVatlyId`, `store`, `update`
 - `WebhookCallRepositoryInterface` — record received webhook calls (audit log)
 
-Use your framework's ORM. There's no fluent-side abstraction over query building — you write straight ORM code.
+`StoreSubscriptionData` and `StoreOrderData` both carry an optional `hostId` resolved from the binding repo when fluent persists from a webhook reaction. Use it to fill your host-side owner column when it's set, and accept `null` for the anonymous-checkout flow.
 
-> Each of the three entity-side repos is also exposed as a Reader / Writer pair (`CustomerReader` + `CustomerWriter`, etc.). The combined interface extends both. Consumers — including your own webhook reactions — should typehint the narrowest role they actually need; reactions that only persist state can ask for `SubscriptionWriter` and won't be coupled to the read methods.
+```php
+public function store(StoreSubscriptionData $data): SubscriptionInterface
+{
+    $attrs = [
+        'vatly_id' => $data->vatlyId,
+        'type'     => $data->type,
+        'plan_id'  => $data->planId,
+        'name'     => $data->name,
+        'quantity' => $data->quantity,
+    ];
+
+    if ($data->hostId !== null) {
+        $attrs['owner_id'] = $data->hostId;
+    }
+
+    return Subscription::create($attrs);
+}
+```
+
+> Each entity-side repo is also exposed as a Reader / Writer pair (`SubscriptionReader` + `SubscriptionWriter`, etc.). The combined interface extends both. Typehint the narrowest role you actually need.
 
 ### 6. Implement `EventDispatcherInterface`
 
@@ -229,12 +263,12 @@ use Vatly\Fluent\Vatly;
 use Vatly\Fluent\Wiring;
 
 $vatly = new Vatly(new Wiring(
-    config:        $config,            // your ConfigurationInterface impl
-    subscriptions: $subscriptionsRepo,
-    customers:     $customersRepo,
-    orders:        $ordersRepo,
-    webhookCalls:  $webhookCallsRepo,
-    events:        $eventDispatcher,
+    config:           $config,                  // your ConfigurationInterface impl
+    subscriptions:    $subscriptionsRepo,
+    orders:           $ordersRepo,
+    webhookCalls:     $webhookCallsRepo,
+    events:           $eventDispatcher,
+    customerBindings: $customerBindingsRepo,
 ));
 ```
 
@@ -244,8 +278,8 @@ If your driver ships plugin-specific webhook reactions (e.g. assigning a members
 
 ```php
 $vatly = new Vatly(new Wiring(
-    config:        $config,
-    // ... repos + events ...
+    config:           $config,
+    // ... repos + events + bindings ...
     additionalWebhookReactions: [
         new AssignMembershipLevelOnStarted(...),
         new RevokeMembershipLevelOnCanceled(...),
@@ -255,31 +289,47 @@ $vatly = new Vatly(new Wiring(
 
 They run after fluent's built-in reactions (subscription sync, order persistence, cancellation handling).
 
-### 8. Expose the per-owner orchestrator
+### 8. Use the SDK — two paths
 
-Give your User model a way to reach `Vatly\Fluent\Billable`:
-
-```php
-class User implements BillableInterface
-{
-    // ...
-
-    public function billable(): \Vatly\Fluent\Billable
-    {
-        return $container->get(Vatly::class)->billable($this);
-    }
-}
-```
-
-Now consumers write:
+**Action-driven.** For drivers that want consumers to reach the SDK explicitly. Reach `Vatly` through your container:
 
 ```php
-$checkout = $user->billable()->subscribe()->toPlan('plan_premium')->create();
-$user->billable()->subscription('default')?->cancel();
-$user->billable()->order('order_abc')->invoiceUrl();
+$vatly = $container->get(Vatly::class);
+
+// Create a checkout — pass in a CustomerProfile carrying whatever the host knows.
+use Vatly\Fluent\CustomerProfile;
+
+$checkout = $vatly
+    ->checkoutBuilder(new CustomerProfile(vatlyId: $user->vatly_id))
+    ->withRedirectUrlSuccess('https://app.example.com/done')
+    ->withRedirectUrlCanceled('https://app.example.com/oops')
+    ->create([['id' => 'plan_premium', 'quantity' => 1]], '...', '...');
+
+// Subscribe
+$checkout = $vatly
+    ->subscriptionBuilder(new CustomerProfile(vatlyId: $user->vatly_id))
+    ->toPlan('plan_premium')
+    ->create();
+
+// Operate on a stored Subscription / Order
+$vatly->subscription($localSubscription)->cancel();
+$vatly->order($localOrder)->invoiceUrl();
 ```
 
-You can add idiomatic shortcuts on the User class (e.g. `$user->subscribe()` proxying to `billable()->subscribe()`). The Laravel driver does this via a trait — see [`vatly-laravel`'s Billable trait](https://github.com/Vatly/vatly-laravel/blob/main/src/Billable.php) for reference.
+**Customer helper.** For host-first flows where you create a Vatly customer for a known host entity and want the link recorded automatically:
+
+```php
+$customer = $vatly->customers()->createFor(
+    hostId: (string) $user->id,
+    profile: new CustomerProfile(email: $user->email, name: $user->name),
+);
+// $customer->id is now bound to $user->id via your CustomerBindingRepository.
+
+// Look up later
+$existing = $vatly->customers()->findByHostId((string) $user->id);
+```
+
+Drivers commonly wrap these calls in idiomatic shortcuts — e.g. a Laravel trait that adds `$user->subscribe()->toPlan(...)->create()` on top of `subscriptionBuilder($user->customerProfile())`.
 
 ### 9. Wire the webhook receiver
 
@@ -311,11 +361,11 @@ public function handle(SomeRequest $request)
 }
 ```
 
-The processor handles signature verification, parses the payload into typed events, runs reactions that persist state via your repos, and dispatches domain events on your event bus.
+The processor handles signature verification, parses the payload into typed events, runs reactions that persist state via your repos (consulting the binding repo to fill `hostId` on stored rows), and dispatches domain events on your event bus.
 
-### 10. (Optional) Expose handles on your local models
+### 10. (Optional) Expose operations on your local models
 
-For Cashier-style ergonomics, give your Eloquent / Doctrine entities operation methods that delegate to handles:
+For Cashier-style ergonomics, give your Eloquent / Doctrine entities operation methods that delegate to fluent:
 
 ```php
 class Subscription implements SubscriptionInterface
@@ -324,12 +374,12 @@ class Subscription implements SubscriptionInterface
 
     public function cancel(): void
     {
-        $container->get(Vatly::class)->subscriptionHandle($this)->cancel();
+        $container->get(Vatly::class)->subscription($this)->cancel();
     }
 
     public function swap(string $planId): self
     {
-        $container->get(Vatly::class)->subscriptionHandle($this)->swap($planId);
+        $container->get(Vatly::class)->subscription($this)->swap($planId);
         return $this;
     }
 }
@@ -353,11 +403,12 @@ $vatly->getSubscription();   $vatly->cancelSubscription();
 $vatly->resumeSubscription(); $vatly->swapSubscriptionPlan();
 $vatly->updateSubscriptionBilling();
 
-// Composed services (lazy, cached) — require repos in Wiring
-$vatly->billableFactory();                         // BillableFactory
-$vatly->billable($owner);                          // Billable bound to one owner
-$vatly->subscriptionHandle($subscription);         // SubscriptionHandle wrapping local state
-$vatly->orderHandle($order);                       // OrderHandle wrapping local state
+// Composed services — require repos in Wiring
+$vatly->customers();                               // Customers helper (lazy, cached)
+$vatly->checkoutBuilder($profile);                 // CheckoutBuilder (per-call)
+$vatly->subscriptionBuilder($profile);             // SubscriptionBuilder (per-call)
+$vatly->subscription($localSubscription);          // Subscription wrapping local state
+$vatly->order($localOrder);                        // Order wrapping local state
 $vatly->webhookProcessor();                        // WebhookProcessor (also needs events dispatcher)
 ```
 
@@ -367,12 +418,11 @@ Calling a composed-services method without the required repos in `Wiring` throws
 
 In [src/Contracts](src/Contracts):
 
-- `BillableInterface` — the owner of subscriptions/orders
 - `SubscriptionInterface` — local subscription state + derived predicates
 - `OrderInterface` — local order state
-- `CustomerRepositoryInterface` — owner persistence. Splits into `CustomerReader` (find) + `CustomerWriter` (save) — typehint the narrowest you need.
-- `SubscriptionRepositoryInterface` — subscription persistence. Splits into `SubscriptionReader` (find/predicates) + `SubscriptionWriter` (store/update).
-- `OrderRepositoryInterface` — order persistence. Splits into `OrderReader` (find) + `OrderWriter` (store/update).
+- `CustomerBindingRepository` — bidirectional mapping between Vatly customer ids and host ids
+- `SubscriptionRepositoryInterface` — subscription persistence (3 methods). Splits into `SubscriptionReader` (find) + `SubscriptionWriter` (store/update).
+- `OrderRepositoryInterface` — order persistence (3 methods). Splits into `OrderReader` (find) + `OrderWriter` (store/update).
 - `WebhookCallRepositoryInterface` — webhook audit log (write-only by nature)
 - `EventDispatcherInterface` — fire domain events
 - `ConfigurationInterface` — API key, URL, version, webhook secret, redirect defaults
