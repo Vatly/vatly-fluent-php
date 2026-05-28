@@ -94,6 +94,43 @@ class StoreOrderOnPaidTest extends TestCase
         $reaction->handle($event);
     }
 
+    public function test_it_plumbs_metadata_through_store_and_update_paths(): void
+    {
+        $metadata = ['fluentcart_transaction_id' => 'tx_42'];
+        $event = new OrderPaid(
+            customerId: 'cus_1',
+            orderId: 'ord_1',
+            total: 9900,
+            subtotal: 8182,
+            taxSummary: TaxSummary::empty(),
+            currency: 'EUR',
+            invoiceNumber: 'INV-001',
+            paymentMethod: 'card',
+            metadata: $metadata,
+        );
+
+        $repo = Mockery::mock(OrderRepositoryInterface::class);
+        $repo->shouldReceive('findByVatlyId')->with('ord_1')->once()->andReturnNull();
+        $repo->shouldReceive('store')->once()->with(Mockery::on(
+            fn (StoreOrderData $data) => $data->metadata === $metadata,
+        ))->andReturn(Mockery::mock(OrderInterface::class));
+
+        $bindings = Mockery::mock(CustomerBindingRepository::class);
+        $bindings->shouldReceive('hostCustomerIdFor')->andReturn(null);
+        $bindings->shouldReceive('record')->once();
+
+        (new StoreOrderOnPaid($repo, $bindings))->handle($event);
+
+        $existing = Mockery::mock(OrderInterface::class);
+        $updateRepo = Mockery::mock(OrderRepositoryInterface::class);
+        $updateRepo->shouldReceive('findByVatlyId')->with('ord_1')->once()->andReturn($existing);
+        $updateRepo->shouldReceive('update')->once()->with($existing, Mockery::on(
+            fn (UpdateOrderData $data) => $data->metadata === $metadata,
+        ))->andReturn($existing);
+
+        (new StoreOrderOnPaid($updateRepo, Mockery::mock(CustomerBindingRepository::class)))->handle($event);
+    }
+
     private function makeEvent(?TaxSummary $taxSummary = null): OrderPaid
     {
         return new OrderPaid(

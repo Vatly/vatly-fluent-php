@@ -24,5 +24,7 @@ class StoreOrderData
         public ?int $subtotal = null,
         public ?TaxSummary $taxSummary = null,
         public ?string $hostCustomerId = null,
+        /** @var array<string, mixed>|null */
+        public ?array $metadata = null,
     ) {}
 }

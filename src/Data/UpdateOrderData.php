@@ -21,5 +21,7 @@ class UpdateOrderData
         public ?string $paymentMethod = null,
         public ?int $subtotal = null,
         public ?TaxSummary $taxSummary = null,
+        /** @var array<string, mixed>|null */
+        public ?array $metadata = null,
     ) {}
 }
