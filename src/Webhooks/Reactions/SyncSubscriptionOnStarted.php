@@ -44,7 +44,7 @@ class SyncSubscriptionOnStarted implements WebhookReactionInterface
             return;
         }
 
-        $hostId = $this->bindings->hostIdFor($event->customerId);
+        $hostCustomerId = $this->bindings->hostCustomerIdFor($event->customerId);
         $this->bindings->record($event->customerId);
 
         $subscription = $this->subscriptions->store(new StoreSubscriptionData(
@@ -54,7 +54,7 @@ class SyncSubscriptionOnStarted implements WebhookReactionInterface
             planId: $event->planId,
             name: $event->name,
             quantity: $event->quantity,
-            hostId: $hostId,
+            hostCustomerId: $hostCustomerId,
         ));
 
         $this->dispatcher->dispatch(new LocalSubscriptionCreated($subscription));

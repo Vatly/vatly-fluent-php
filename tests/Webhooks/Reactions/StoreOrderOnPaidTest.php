@@ -42,7 +42,7 @@ class StoreOrderOnPaidTest extends TestCase
         $this->assertFalse($reaction->supports($event));
     }
 
-    public function test_it_stores_an_order_with_host_id_from_bindings_when_none_exists(): void
+    public function test_it_stores_an_order_with_host_customer_id_from_bindings_when_none_exists(): void
     {
         $taxSummary = $this->makeTaxSummary();
         $event = $this->makeEvent(taxSummary: $taxSummary);
@@ -59,11 +59,11 @@ class StoreOrderOnPaidTest extends TestCase
                 && $data->currency === 'EUR'
                 && $data->invoiceNumber === 'INV-001'
                 && $data->paymentMethod === 'card'
-                && $data->hostId === 'host_7';
+                && $data->hostCustomerId === 'host_7';
         }))->andReturn(Mockery::mock(OrderInterface::class));
 
         $bindings = Mockery::mock(CustomerBindingRepository::class);
-        $bindings->shouldReceive('hostIdFor')->with('cus_1')->once()->andReturn('host_7');
+        $bindings->shouldReceive('hostCustomerIdFor')->with('cus_1')->once()->andReturn('host_7');
         $bindings->shouldReceive('record')->with('cus_1')->once();
 
         $reaction = new StoreOrderOnPaid($repo, $bindings);
@@ -87,7 +87,7 @@ class StoreOrderOnPaidTest extends TestCase
         $repo->shouldNotReceive('store');
 
         $bindings = Mockery::mock(CustomerBindingRepository::class);
-        $bindings->shouldNotReceive('hostIdFor');
+        $bindings->shouldNotReceive('hostCustomerIdFor');
         $bindings->shouldNotReceive('record');
 
         $reaction = new StoreOrderOnPaid($repo, $bindings);

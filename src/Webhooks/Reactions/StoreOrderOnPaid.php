@@ -45,7 +45,7 @@ class StoreOrderOnPaid implements WebhookReactionInterface
             return;
         }
 
-        $hostId = $this->bindings->hostIdFor($event->customerId);
+        $hostCustomerId = $this->bindings->hostCustomerIdFor($event->customerId);
         $this->bindings->record($event->customerId);
 
         $this->orders->store(new StoreOrderData(
@@ -58,7 +58,7 @@ class StoreOrderOnPaid implements WebhookReactionInterface
             paymentMethod: $event->paymentMethod,
             subtotal: $event->subtotal,
             taxSummary: $event->taxSummary,
-            hostId: $hostId,
+            hostCustomerId: $hostCustomerId,
         ));
     }
 }

@@ -46,7 +46,7 @@ class SyncSubscriptionOnStartedTest extends TestCase
         $this->assertFalse($reaction->supports($event));
     }
 
-    public function test_it_stores_a_subscription_with_host_id_from_bindings_when_none_exists(): void
+    public function test_it_stores_a_subscription_with_host_customer_id_from_bindings_when_none_exists(): void
     {
         $subscription = Mockery::mock(SubscriptionInterface::class);
 
@@ -59,11 +59,11 @@ class SyncSubscriptionOnStartedTest extends TestCase
                 && $data->planId === 'plan_1'
                 && $data->name === 'Monthly'
                 && $data->quantity === 1
-                && $data->hostId === 'host_42';
+                && $data->hostCustomerId === 'host_42';
         }))->andReturn($subscription);
 
         $bindings = Mockery::mock(CustomerBindingRepository::class);
-        $bindings->shouldReceive('hostIdFor')->with('cus_1')->once()->andReturn('host_42');
+        $bindings->shouldReceive('hostCustomerIdFor')->with('cus_1')->once()->andReturn('host_42');
         $bindings->shouldReceive('record')->with('cus_1')->once();
 
         $dispatcher = Mockery::mock(EventDispatcherInterface::class);
@@ -76,18 +76,18 @@ class SyncSubscriptionOnStartedTest extends TestCase
         $reaction->handle(new SubscriptionStarted('cus_1', 'sub_1', 'plan_1', 'default', 'Monthly', 1));
     }
 
-    public function test_it_stores_a_subscription_with_null_host_id_when_no_binding_exists(): void
+    public function test_it_stores_a_subscription_with_null_host_customer_id_when_no_binding_exists(): void
     {
         $subscription = Mockery::mock(SubscriptionInterface::class);
 
         $repo = Mockery::mock(SubscriptionRepositoryInterface::class);
         $repo->shouldReceive('findByVatlyId')->with('sub_1')->once()->andReturnNull();
         $repo->shouldReceive('store')->once()->with(Mockery::on(function (StoreSubscriptionData $data) {
-            return $data->hostId === null;
+            return $data->hostCustomerId === null;
         }))->andReturn($subscription);
 
         $bindings = Mockery::mock(CustomerBindingRepository::class);
-        $bindings->shouldReceive('hostIdFor')->with('cus_1')->once()->andReturnNull();
+        $bindings->shouldReceive('hostCustomerIdFor')->with('cus_1')->once()->andReturnNull();
         $bindings->shouldReceive('record')->with('cus_1')->once();
 
         $dispatcher = Mockery::mock(EventDispatcherInterface::class);
@@ -108,7 +108,7 @@ class SyncSubscriptionOnStartedTest extends TestCase
         $repo->shouldNotReceive('store');
 
         $bindings = Mockery::mock(CustomerBindingRepository::class);
-        $bindings->shouldNotReceive('hostIdFor');
+        $bindings->shouldNotReceive('hostCustomerIdFor');
         $bindings->shouldNotReceive('record');
 
         $dispatcher = Mockery::mock(EventDispatcherInterface::class);

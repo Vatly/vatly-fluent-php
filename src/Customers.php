@@ -22,16 +22,16 @@ class Customers
     /**
      * Host-first: create a Vatly customer for a known host entity and bind.
      *
-     * @throws CustomerAlreadyBound When the host id is already bound.
+     * @throws CustomerAlreadyBound When the host customer id is already bound.
      */
-    public function createFor(string $hostId, CustomerProfile $profile): ApiCustomer
+    public function createFor(string $hostCustomerId, CustomerProfile $profile): ApiCustomer
     {
-        if (($existing = $this->bindings->vatlyIdFor($hostId)) !== null) {
-            throw CustomerAlreadyBound::forHost($hostId, $existing);
+        if (($existing = $this->bindings->vatlyCustomerIdFor($hostCustomerId)) !== null) {
+            throw CustomerAlreadyBound::forHost($hostCustomerId, $existing);
         }
 
         $customer = $this->createCustomer->execute($profile->toPayload());
-        $this->bindings->bind($customer->id, $hostId);
+        $this->bindings->bind($customer->id, $hostCustomerId);
 
         return $customer;
     }
@@ -45,27 +45,27 @@ class Customers
         return $customer;
     }
 
-    /** Attach (or update) a host id to an already-known Vatly customer. */
-    public function attribute(string $vatlyId, string $hostId): void
+    /** Attach (or update) a host customer id to an already-known Vatly customer. */
+    public function attribute(string $vatlyCustomerId, string $hostCustomerId): void
     {
-        $this->bindings->bind($vatlyId, $hostId);
+        $this->bindings->bind($vatlyCustomerId, $hostCustomerId);
     }
 
-    /** Fetch the Vatly customer linked to this host id, or null. */
-    public function findByHostId(string $hostId): ?ApiCustomer
+    /** Fetch the Vatly customer linked to this host customer id, or null. */
+    public function findByHostCustomerId(string $hostCustomerId): ?ApiCustomer
     {
-        $vatlyId = $this->bindings->vatlyIdFor($hostId);
+        $vatlyCustomerId = $this->bindings->vatlyCustomerIdFor($hostCustomerId);
 
-        return $vatlyId !== null ? $this->getCustomer->execute($vatlyId) : null;
+        return $vatlyCustomerId !== null ? $this->getCustomer->execute($vatlyCustomerId) : null;
     }
 
-    public function findByVatlyId(string $vatlyId): ApiCustomer
+    public function findByVatlyCustomerId(string $vatlyCustomerId): ApiCustomer
     {
-        return $this->getCustomer->execute($vatlyId);
+        return $this->getCustomer->execute($vatlyCustomerId);
     }
 
-    public function hostIdFor(string $vatlyId): ?string
+    public function hostCustomerIdFor(string $vatlyCustomerId): ?string
     {
-        return $this->bindings->hostIdFor($vatlyId);
+        return $this->bindings->hostCustomerIdFor($vatlyCustomerId);
     }
 }

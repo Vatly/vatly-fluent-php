@@ -8,8 +8,8 @@ use RuntimeException;
 
 final class CustomerAlreadyBound extends RuntimeException implements VatlyException
 {
-    public static function forHost(string $hostId, string $vatlyId): self
+    public static function forHost(string $hostCustomerId, string $vatlyCustomerId): self
     {
-        return new self("Host id '{$hostId}' is already bound to Vatly customer '{$vatlyId}'.");
+        return new self("Host customer id '{$hostCustomerId}' is already bound to Vatly customer '{$vatlyCustomerId}'.");
     }
 }

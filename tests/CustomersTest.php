@@ -27,7 +27,7 @@ class CustomersTest extends TestCase
             ->andReturn($apiCustomer);
 
         $bindings = Mockery::mock(CustomerBindingRepository::class);
-        $bindings->shouldReceive('vatlyIdFor')->with('host_1')->once()->andReturnNull();
+        $bindings->shouldReceive('vatlyCustomerIdFor')->with('host_1')->once()->andReturnNull();
         $bindings->shouldReceive('bind')->with('cus_new', 'host_1')->once();
 
         $customers = new Customers($createCustomer, Mockery::mock(GetCustomer::class), $bindings);
@@ -41,7 +41,7 @@ class CustomersTest extends TestCase
     public function test_create_for_throws_when_host_is_already_bound(): void
     {
         $bindings = Mockery::mock(CustomerBindingRepository::class);
-        $bindings->shouldReceive('vatlyIdFor')->with('host_1')->once()->andReturn('cus_existing');
+        $bindings->shouldReceive('vatlyCustomerIdFor')->with('host_1')->once()->andReturn('cus_existing');
 
         $createCustomer = Mockery::mock(CreateCustomer::class);
         $createCustomer->shouldNotReceive('execute');
@@ -89,35 +89,35 @@ class CustomersTest extends TestCase
         $customers->attribute('cus_x', 'host_x');
     }
 
-    public function test_find_by_host_id_returns_customer_when_bound(): void
+    public function test_find_by_host_customer_id_returns_customer_when_bound(): void
     {
         $apiCustomer = $this->makeApiCustomer('cus_bound');
 
         $bindings = Mockery::mock(CustomerBindingRepository::class);
-        $bindings->shouldReceive('vatlyIdFor')->with('host_1')->once()->andReturn('cus_bound');
+        $bindings->shouldReceive('vatlyCustomerIdFor')->with('host_1')->once()->andReturn('cus_bound');
 
         $getCustomer = Mockery::mock(GetCustomer::class);
         $getCustomer->shouldReceive('execute')->with('cus_bound')->once()->andReturn($apiCustomer);
 
         $customers = new Customers(Mockery::mock(CreateCustomer::class), $getCustomer, $bindings);
 
-        $this->assertSame($apiCustomer, $customers->findByHostId('host_1'));
+        $this->assertSame($apiCustomer, $customers->findByHostCustomerId('host_1'));
     }
 
-    public function test_find_by_host_id_returns_null_when_unbound(): void
+    public function test_find_by_host_customer_id_returns_null_when_unbound(): void
     {
         $bindings = Mockery::mock(CustomerBindingRepository::class);
-        $bindings->shouldReceive('vatlyIdFor')->with('host_unknown')->once()->andReturnNull();
+        $bindings->shouldReceive('vatlyCustomerIdFor')->with('host_unknown')->once()->andReturnNull();
 
         $getCustomer = Mockery::mock(GetCustomer::class);
         $getCustomer->shouldNotReceive('execute');
 
         $customers = new Customers(Mockery::mock(CreateCustomer::class), $getCustomer, $bindings);
 
-        $this->assertNull($customers->findByHostId('host_unknown'));
+        $this->assertNull($customers->findByHostCustomerId('host_unknown'));
     }
 
-    public function test_find_by_vatly_id_proxies_to_the_action(): void
+    public function test_find_by_vatly_customer_id_proxies_to_the_action(): void
     {
         $apiCustomer = $this->makeApiCustomer('cus_zzz');
 
@@ -130,13 +130,13 @@ class CustomersTest extends TestCase
             Mockery::mock(CustomerBindingRepository::class),
         );
 
-        $this->assertSame($apiCustomer, $customers->findByVatlyId('cus_zzz'));
+        $this->assertSame($apiCustomer, $customers->findByVatlyCustomerId('cus_zzz'));
     }
 
-    public function test_host_id_for_proxies_to_bindings(): void
+    public function test_host_customer_id_for_proxies_to_bindings(): void
     {
         $bindings = Mockery::mock(CustomerBindingRepository::class);
-        $bindings->shouldReceive('hostIdFor')->with('cus_a')->once()->andReturn('host_a');
+        $bindings->shouldReceive('hostCustomerIdFor')->with('cus_a')->once()->andReturn('host_a');
 
         $customers = new Customers(
             Mockery::mock(CreateCustomer::class),
@@ -144,7 +144,7 @@ class CustomersTest extends TestCase
             $bindings,
         );
 
-        $this->assertSame('host_a', $customers->hostIdFor('cus_a'));
+        $this->assertSame('host_a', $customers->hostCustomerIdFor('cus_a'));
     }
 
     private function makeApiCustomer(string $id): ApiCustomer

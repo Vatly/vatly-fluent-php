@@ -129,7 +129,7 @@ final class SymfonyVatlyConfig implements ConfigurationInterface
 
 ### 2. Implement `CustomerBindingRepository`
 
-The binding repository links a Vatly customer id (`cus_...`) to whatever id your app uses for its billing entity (User, Organization, Tenant, …). Fluent never touches your host model directly — it only asks "what is the Vatly id for this host id?" and the reverse.
+The binding repository links a Vatly customer id (`cus_...`) to whatever id your app uses for its billing entity (User, Organization, Tenant, …). Fluent never touches your host model directly — it only asks "what is the Vatly customer id for this host customer id?" and the reverse.
 
 ```php
 use Vatly\Fluent\Contracts\CustomerBindingRepository;
@@ -138,34 +138,53 @@ final class SymfonyCustomerBindingRepository implements CustomerBindingRepositor
 {
     public function __construct(private Connection $db) {}
 
-    public function bind(string $vatlyId, string $hostId): void
+    public function bind(string $vatlyCustomerId, string $hostCustomerId): void
     {
         $this->db->executeStatement(
             'UPDATE users SET vatly_id = ? WHERE id = ?',
-            [$vatlyId, $hostId],
+            [$vatlyCustomerId, $hostCustomerId],
         );
     }
 
-    public function record(string $vatlyId): void
+    public function record(string $vatlyCustomerId): void
     {
-        // No-op: rows arrive with a null host id via the anonymous-checkout flow
-        // and get attributed later. Override if your driver tracks unattributed
-        // customers in a join table instead.
+        // No-op: rows arrive with a null host customer id via the
+        // anonymous-checkout flow and get attributed later. Override if
+        // your driver tracks unattributed customers in a join table instead.
     }
 
-    public function hostIdFor(string $vatlyId): ?string
+    public function hostCustomerIdFor(string $vatlyCustomerId): ?string
     {
-        return $this->db->fetchOne('SELECT id FROM users WHERE vatly_id = ?', [$vatlyId]) ?: null;
+        return $this->db->fetchOne('SELECT id FROM users WHERE vatly_id = ?', [$vatlyCustomerId]) ?: null;
     }
 
-    public function vatlyIdFor(string $hostId): ?string
+    public function vatlyCustomerIdFor(string $hostCustomerId): ?string
     {
-        return $this->db->fetchOne('SELECT vatly_id FROM users WHERE id = ?', [$hostId]) ?: null;
+        return $this->db->fetchOne('SELECT vatly_id FROM users WHERE id = ?', [$hostCustomerId]) ?: null;
     }
 }
 ```
 
-> Can't add a column to the owner table? Implement the four methods against a dedicated join table instead. See [docs/recipes/cannot-customize-owner-model.md](docs/recipes/cannot-customize-owner-model.md).
+<details>
+<summary><strong>What if I can't add a <code>vatly_id</code> column?</strong> — vendor user model, third-party identity provider, multi-tenant…</summary>
+
+Implement the same four methods against a dedicated join table. The host class itself stays untouched.
+
+```sql
+CREATE TABLE vatly_customer_bindings (
+    host_customer_id  VARCHAR(255) NOT NULL,
+    vatly_customer_id VARCHAR(255) NOT NULL,
+    created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (host_customer_id),
+    UNIQUE      (vatly_customer_id)
+);
+```
+
+`bind` `INSERT … ON CONFLICT … DO UPDATE`; `hostCustomerIdFor` / `vatlyCustomerIdFor` are single-column lookups; `record` is allowed to be a no-op (or insert a row with an empty host id if you want an audit trail for unattributed customers — `attribute()` can fill it in later).
+
+**Multi-tenant fan-out.** If multiple host types (User, Organization, Tenant) should all participate as Vatly customers, add an `owner_type` column to the primary key and inject which type the repository handles at construction time — one repository instance per host type.
+
+</details>
 
 ### 3. Implement your `SubscriptionInterface` model
 
@@ -215,7 +234,7 @@ Each entity-side contract has three methods. See [src/Contracts](src/Contracts) 
 - `OrderRepositoryInterface` — `findByVatlyId`, `store`, `update`
 - `WebhookCallRepositoryInterface` — record received webhook calls (audit log)
 
-`StoreSubscriptionData` and `StoreOrderData` both carry an optional `hostId` resolved from the binding repo when fluent persists from a webhook reaction. Use it to fill your host-side owner column when it's set, and accept `null` for the anonymous-checkout flow.
+`StoreSubscriptionData` and `StoreOrderData` both carry an optional `hostCustomerId` resolved from the binding repo when fluent persists from a webhook reaction. Use it to fill your host-side owner column when it's set, and accept `null` for the anonymous-checkout flow.
 
 ```php
 public function store(StoreSubscriptionData $data): SubscriptionInterface
@@ -228,8 +247,8 @@ public function store(StoreSubscriptionData $data): SubscriptionInterface
         'quantity' => $data->quantity,
     ];
 
-    if ($data->hostId !== null) {
-        $attrs['owner_id'] = $data->hostId;
+    if ($data->hostCustomerId !== null) {
+        $attrs['owner_id'] = $data->hostCustomerId;
     }
 
     return Subscription::create($attrs);
@@ -320,13 +339,13 @@ $vatly->order($localOrder)->invoiceUrl();
 
 ```php
 $customer = $vatly->customers()->createFor(
-    hostId: (string) $user->id,
-    profile: new CustomerProfile(email: $user->email, name: $user->name),
+    hostCustomerId: (string) $user->id,
+    profile:        new CustomerProfile(email: $user->email, name: $user->name),
 );
 // $customer->id is now bound to $user->id via your CustomerBindingRepository.
 
 // Look up later
-$existing = $vatly->customers()->findByHostId((string) $user->id);
+$existing = $vatly->customers()->findByHostCustomerId((string) $user->id);
 ```
 
 Drivers commonly wrap these calls in idiomatic shortcuts — e.g. a Laravel trait that adds `$user->subscribe()->toPlan(...)->create()` on top of `subscriptionBuilder($user->customerProfile())`.
@@ -361,7 +380,7 @@ public function handle(SomeRequest $request)
 }
 ```
 
-The processor handles signature verification, parses the payload into typed events, runs reactions that persist state via your repos (consulting the binding repo to fill `hostId` on stored rows), and dispatches domain events on your event bus.
+The processor handles signature verification, parses the payload into typed events, runs reactions that persist state via your repos (consulting the binding repo to fill `hostCustomerId` on stored rows), and dispatches domain events on your event bus.
 
 ### 10. (Optional) Expose operations on your local models
 
@@ -439,10 +458,6 @@ Dispatched by webhook reactions through your `EventDispatcherInterface`. Subscri
 - `SubscriptionCanceledWithGracePeriod`
 - `LocalSubscriptionCreated`
 - `UnsupportedWebhookReceived`
-
-## Recipes
-
-For situational guides (sealed owner models, multi-tenant setups, …) see [docs/recipes/](docs/recipes/).
 
 ## Testing
 
