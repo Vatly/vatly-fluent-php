@@ -11,18 +11,18 @@ use Vatly\Fluent\Contracts\OrderRepositoryInterface;
 use Vatly\Fluent\Data\StoreOrderData;
 use Vatly\Fluent\Data\UpdateOrderData;
 use Vatly\Fluent\Events\OrderPaid;
-use Vatly\Fluent\Events\SubscriptionStarted;
+use Vatly\Fluent\Events\PaymentFailed;
 use Vatly\Fluent\Tests\TestCase;
 use Vatly\Fluent\Types\TaxSummary;
 use Vatly\Fluent\Types\TaxSummaryItem;
 use Vatly\Fluent\Types\TaxSummaryRate;
-use Vatly\Fluent\Webhooks\Reactions\StoreOrderOnPaid;
+use Vatly\Fluent\Webhooks\Reactions\StoreOrderOnPaymentFailed;
 
-class StoreOrderOnPaidTest extends TestCase
+class StoreOrderOnPaymentFailedTest extends TestCase
 {
-    public function test_it_supports_order_paid_events(): void
+    public function test_it_supports_payment_failed_events(): void
     {
-        $reaction = new StoreOrderOnPaid(
+        $reaction = new StoreOrderOnPaymentFailed(
             Mockery::mock(OrderRepositoryInterface::class),
             Mockery::mock(CustomerBindingRepository::class),
         );
@@ -30,19 +30,29 @@ class StoreOrderOnPaidTest extends TestCase
         $this->assertTrue($reaction->supports($this->makeEvent()));
     }
 
-    public function test_it_does_not_support_other_events(): void
+    public function test_it_does_not_support_order_paid_or_other_events(): void
     {
-        $reaction = new StoreOrderOnPaid(
+        $reaction = new StoreOrderOnPaymentFailed(
             Mockery::mock(OrderRepositoryInterface::class),
             Mockery::mock(CustomerBindingRepository::class),
         );
 
-        $event = new SubscriptionStarted('cus_1', 'sub_1', 'plan_1', 'default', 'Monthly', 1);
+        $orderPaid = new OrderPaid(
+            customerId: 'cus_1',
+            orderId: 'ord_1',
+            status: 'paid',
+            total: 9900,
+            subtotal: 8182,
+            taxSummary: TaxSummary::empty(),
+            currency: 'EUR',
+            invoiceNumber: null,
+            paymentMethod: null,
+        );
 
-        $this->assertFalse($reaction->supports($event));
+        $this->assertFalse($reaction->supports($orderPaid));
     }
 
-    public function test_it_stores_an_order_with_host_customer_id_from_bindings_when_none_exists(): void
+    public function test_it_stores_a_failed_order_with_host_customer_id_from_bindings_when_none_exists(): void
     {
         $taxSummary = $this->makeTaxSummary();
         $event = $this->makeEvent(taxSummary: $taxSummary);
@@ -52,13 +62,13 @@ class StoreOrderOnPaidTest extends TestCase
         $repo->shouldReceive('store')->once()->with(Mockery::on(function (StoreOrderData $data) use ($taxSummary) {
             return $data->vatlyId === 'ord_1'
                 && $data->customerId === 'cus_1'
-                && $data->status === 'paid'
-                && $data->total === 9900
-                && $data->subtotal === 8182
+                && $data->status === 'pending'
+                && $data->total === 4900
+                && $data->subtotal === 4050
                 && $data->taxSummary === $taxSummary
                 && $data->currency === 'EUR'
-                && $data->invoiceNumber === 'INV-001'
-                && $data->paymentMethod === 'card'
+                && $data->invoiceNumber === null
+                && $data->paymentMethod === 'sepa_direct_debit'
                 && $data->hostCustomerId === 'host_7';
         }))->andReturn(Mockery::mock(OrderInterface::class));
 
@@ -66,11 +76,11 @@ class StoreOrderOnPaidTest extends TestCase
         $bindings->shouldReceive('hostCustomerIdFor')->with('cus_1')->once()->andReturn('host_7');
         $bindings->shouldReceive('record')->with('cus_1')->once();
 
-        $reaction = new StoreOrderOnPaid($repo, $bindings);
+        $reaction = new StoreOrderOnPaymentFailed($repo, $bindings);
         $reaction->handle($event);
     }
 
-    public function test_it_updates_an_existing_order_without_consulting_bindings(): void
+    public function test_it_updates_an_existing_order_to_failed_without_consulting_bindings(): void
     {
         $taxSummary = $this->makeTaxSummary();
         $event = $this->makeEvent(taxSummary: $taxSummary);
@@ -79,10 +89,11 @@ class StoreOrderOnPaidTest extends TestCase
         $repo = Mockery::mock(OrderRepositoryInterface::class);
         $repo->shouldReceive('findByVatlyId')->with('ord_1')->once()->andReturn($existing);
         $repo->shouldReceive('update')->once()->with($existing, Mockery::on(function (UpdateOrderData $data) use ($taxSummary) {
-            return $data->status === 'paid'
-                && $data->total === 9900
-                && $data->subtotal === 8182
-                && $data->taxSummary === $taxSummary;
+            return $data->status === 'pending'
+                && $data->total === 4900
+                && $data->subtotal === 4050
+                && $data->taxSummary === $taxSummary
+                && $data->paymentMethod === 'sepa_direct_debit';
         }))->andReturn($existing);
         $repo->shouldNotReceive('store');
 
@@ -90,22 +101,39 @@ class StoreOrderOnPaidTest extends TestCase
         $bindings->shouldNotReceive('hostCustomerIdFor');
         $bindings->shouldNotReceive('record');
 
-        $reaction = new StoreOrderOnPaid($repo, $bindings);
+        $reaction = new StoreOrderOnPaymentFailed($repo, $bindings);
         $reaction->handle($event);
+    }
+
+    public function test_it_persists_whatever_status_the_enriched_order_carries(): void
+    {
+        // Regression: an earlier version of this reaction hardcoded `'failed'`,
+        // which diverged from the real Vatly order state ('pending' during
+        // dunning, sometimes 'canceled' after the process ends). We mirror,
+        // not synthesise.
+        $repo = Mockery::mock(OrderRepositoryInterface::class);
+        $existing = Mockery::mock(OrderInterface::class);
+        $repo->shouldReceive('findByVatlyId')->with('ord_1')->once()->andReturn($existing);
+        $repo->shouldReceive('update')->once()->with($existing, Mockery::on(
+            fn (UpdateOrderData $data) => $data->status === 'canceled',
+        ))->andReturn($existing);
+
+        (new StoreOrderOnPaymentFailed($repo, Mockery::mock(CustomerBindingRepository::class)))
+            ->handle($this->makeEvent(status: 'canceled'));
     }
 
     public function test_it_skips_bindings_when_customer_id_is_empty(): void
     {
-        $event = new OrderPaid(
+        $event = new PaymentFailed(
             customerId: '',
             orderId: 'ord_anon',
-            status: 'paid',
-            total: 9900,
-            subtotal: 8182,
+            status: 'pending',
+            total: 4900,
+            subtotal: 4050,
             taxSummary: TaxSummary::empty(),
             currency: 'EUR',
-            invoiceNumber: 'INV-001',
-            paymentMethod: 'card',
+            invoiceNumber: null,
+            paymentMethod: 'sepa_direct_debit',
         );
 
         $repo = Mockery::mock(OrderRepositoryInterface::class);
@@ -113,29 +141,29 @@ class StoreOrderOnPaidTest extends TestCase
         $repo->shouldReceive('store')->once()->with(Mockery::on(
             fn (StoreOrderData $data) => $data->customerId === ''
                 && $data->hostCustomerId === null
-                && $data->status === 'paid',
+                && $data->status === 'pending',
         ))->andReturn(Mockery::mock(OrderInterface::class));
 
         $bindings = Mockery::mock(CustomerBindingRepository::class);
         $bindings->shouldNotReceive('hostCustomerIdFor');
         $bindings->shouldNotReceive('record');
 
-        (new StoreOrderOnPaid($repo, $bindings))->handle($event);
+        (new StoreOrderOnPaymentFailed($repo, $bindings))->handle($event);
     }
 
     public function test_it_plumbs_metadata_through_store_and_update_paths(): void
     {
         $metadata = ['fluentcart_transaction_id' => 'tx_42'];
-        $event = new OrderPaid(
+        $event = new PaymentFailed(
             customerId: 'cus_1',
             orderId: 'ord_1',
-            status: 'paid',
-            total: 9900,
-            subtotal: 8182,
+            status: 'pending',
+            total: 4900,
+            subtotal: 4050,
             taxSummary: TaxSummary::empty(),
             currency: 'EUR',
-            invoiceNumber: 'INV-001',
-            paymentMethod: 'card',
+            invoiceNumber: null,
+            paymentMethod: 'sepa_direct_debit',
             metadata: $metadata,
         );
 
@@ -149,7 +177,7 @@ class StoreOrderOnPaidTest extends TestCase
         $bindings->shouldReceive('hostCustomerIdFor')->andReturn(null);
         $bindings->shouldReceive('record')->once();
 
-        (new StoreOrderOnPaid($repo, $bindings))->handle($event);
+        (new StoreOrderOnPaymentFailed($repo, $bindings))->handle($event);
 
         $existing = Mockery::mock(OrderInterface::class);
         $updateRepo = Mockery::mock(OrderRepositoryInterface::class);
@@ -158,21 +186,21 @@ class StoreOrderOnPaidTest extends TestCase
             fn (UpdateOrderData $data) => $data->metadata === $metadata,
         ))->andReturn($existing);
 
-        (new StoreOrderOnPaid($updateRepo, Mockery::mock(CustomerBindingRepository::class)))->handle($event);
+        (new StoreOrderOnPaymentFailed($updateRepo, Mockery::mock(CustomerBindingRepository::class)))->handle($event);
     }
 
-    private function makeEvent(?TaxSummary $taxSummary = null): OrderPaid
+    private function makeEvent(?TaxSummary $taxSummary = null, string $status = 'pending'): PaymentFailed
     {
-        return new OrderPaid(
+        return new PaymentFailed(
             customerId: 'cus_1',
             orderId: 'ord_1',
-            status: 'paid',
-            total: 9900,
-            subtotal: 8182,
+            status: $status,
+            total: 4900,
+            subtotal: 4050,
             taxSummary: $taxSummary ?? TaxSummary::empty(),
             currency: 'EUR',
-            invoiceNumber: 'INV-001',
-            paymentMethod: 'card',
+            invoiceNumber: null,
+            paymentMethod: 'sepa_direct_debit',
         );
     }
 
@@ -181,7 +209,7 @@ class StoreOrderOnPaidTest extends TestCase
         return new TaxSummary([
             new TaxSummaryItem(
                 rate: new TaxSummaryRate('VAT', 21.0, 100.0),
-                amount: 1718,
+                amount: 850,
                 currency: 'EUR',
             ),
         ]);

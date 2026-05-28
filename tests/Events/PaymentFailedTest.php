@@ -9,23 +9,23 @@ use Vatly\API\Resources\Order as ApiOrder;
 use Vatly\API\Types\Money;
 use Vatly\API\Types\TaxSummaryCollection;
 use Vatly\API\VatlyApiClient;
-use Vatly\Fluent\Events\OrderPaid;
+use Vatly\Fluent\Events\PaymentFailed;
 use Vatly\Fluent\Tests\TestCase;
 use Vatly\Fluent\Types\TaxSummary;
 
-class OrderPaidTest extends TestCase
+class PaymentFailedTest extends TestCase
 {
     public function test_it_has_correct_vatly_event_name_constant(): void
     {
-        $this->assertSame('order.paid', OrderPaid::VATLY_EVENT_NAME);
+        $this->assertSame('payment.failed', PaymentFailed::VATLY_EVENT_NAME);
     }
 
     public function test_it_can_be_instantiated_with_all_properties(): void
     {
-        $event = new OrderPaid(
+        $event = new PaymentFailed(
             customerId: 'cus_123',
             orderId: 'ord_456',
-            status: 'paid',
+            status: 'pending',
             total: 9900,
             subtotal: 8182,
             taxSummary: TaxSummary::empty(),
@@ -36,7 +36,7 @@ class OrderPaidTest extends TestCase
 
         $this->assertSame('cus_123', $event->customerId);
         $this->assertSame('ord_456', $event->orderId);
-        $this->assertSame('paid', $event->status);
+        $this->assertSame('pending', $event->status);
         $this->assertSame(9900, $event->total);
         $this->assertSame(8182, $event->subtotal);
         $this->assertCount(0, $event->taxSummary);
@@ -54,7 +54,7 @@ class OrderPaidTest extends TestCase
         $apiOrder->subtotal = new Money('USD', '41.31');
         $apiOrder->invoiceNumber = 'INV-2024-002';
         $apiOrder->paymentMethod = 'ideal';
-        $apiOrder->status = 'paid';
+        $apiOrder->status = 'pending';
         $apiOrder->taxSummary = new TaxSummaryCollection([
             [
                 'taxRate' => ['name' => 'VAT', 'percentage' => 21.0, 'taxablePercentage' => 100.0],
@@ -62,11 +62,11 @@ class OrderPaidTest extends TestCase
             ],
         ]);
 
-        $event = OrderPaid::fromApiOrder($apiOrder);
+        $event = PaymentFailed::fromApiOrder($apiOrder);
 
         $this->assertSame('cus_456', $event->customerId);
         $this->assertSame('ord_123', $event->orderId);
-        $this->assertSame('paid', $event->status);
+        $this->assertSame('pending', $event->status);
         $this->assertSame(4999, $event->total);
         $this->assertSame(4131, $event->subtotal);
         $this->assertSame('USD', $event->currency);
@@ -86,14 +86,14 @@ class OrderPaidTest extends TestCase
         $apiOrder->subtotal = new Money('GBP', '12.40');
         $apiOrder->invoiceNumber = null;
         $apiOrder->paymentMethod = null;
-        $apiOrder->status = 'paid';
+        $apiOrder->status = 'pending';
         $apiOrder->taxSummary = new TaxSummaryCollection([]);
 
-        $event = OrderPaid::fromApiOrder($apiOrder);
+        $event = PaymentFailed::fromApiOrder($apiOrder);
 
         $this->assertSame('', $event->customerId);
         $this->assertSame('ord_789', $event->orderId);
-        $this->assertSame('paid', $event->status);
+        $this->assertSame('pending', $event->status);
         $this->assertSame(1500, $event->total);
         $this->assertSame(1240, $event->subtotal);
         $this->assertSame('GBP', $event->currency);
@@ -108,7 +108,7 @@ class OrderPaidTest extends TestCase
         $apiOrder = $this->makeApiOrder();
         $apiOrder->metadata = ['fluentcart_transaction_id' => 'tx_42', 'source' => 'checkout'];
 
-        $event = OrderPaid::fromApiOrder($apiOrder);
+        $event = PaymentFailed::fromApiOrder($apiOrder);
 
         $this->assertSame(
             ['fluentcart_transaction_id' => 'tx_42', 'source' => 'checkout'],
@@ -121,7 +121,7 @@ class OrderPaidTest extends TestCase
         $apiOrder = $this->makeApiOrder();
         $apiOrder->metadata = (object) ['fluentcart_transaction_id' => 'tx_42'];
 
-        $event = OrderPaid::fromApiOrder($apiOrder);
+        $event = PaymentFailed::fromApiOrder($apiOrder);
 
         $this->assertSame(['fluentcart_transaction_id' => 'tx_42'], $event->metadata);
     }
@@ -135,7 +135,7 @@ class OrderPaidTest extends TestCase
         $apiOrder->subtotal = new Money('EUR', '8.26');
         $apiOrder->invoiceNumber = null;
         $apiOrder->paymentMethod = null;
-        $apiOrder->status = 'paid';
+        $apiOrder->status = 'pending';
         $apiOrder->taxSummary = new TaxSummaryCollection([]);
 
         return $apiOrder;

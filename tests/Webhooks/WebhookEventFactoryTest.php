@@ -13,6 +13,7 @@ use Vatly\API\VatlyApiClient;
 use Vatly\API\Webhooks\WebhookPayload;
 use Vatly\Fluent\Actions\GetOrder;
 use Vatly\Fluent\Events\OrderPaid;
+use Vatly\Fluent\Events\PaymentFailed;
 use Vatly\Fluent\Events\SubscriptionCanceledImmediately;
 use Vatly\Fluent\Events\SubscriptionCanceledWithGracePeriod;
 use Vatly\Fluent\Events\SubscriptionStarted;
@@ -193,6 +194,7 @@ class WebhookEventFactoryTest extends TestCase
         $this->assertInstanceOf(OrderPaid::class, $event);
         $this->assertSame('cus_456', $event->customerId);
         $this->assertSame('ord_123', $event->orderId);
+        $this->assertSame('paid', $event->status);
         $this->assertSame(9900, $event->total);
         $this->assertSame(8182, $event->subtotal);
         $this->assertSame('EUR', $event->currency);
@@ -203,6 +205,56 @@ class WebhookEventFactoryTest extends TestCase
         $this->assertSame(21.0, $event->taxSummary->items[0]->rate->percentage);
         $this->assertSame(1718, $event->taxSummary->items[0]->amount);
         $this->assertSame('EUR', $event->taxSummary->items[0]->currency);
+    }
+
+    public function test_it_creates_payment_failed_event_from_webhook_with_enriched_order(): void
+    {
+        $apiOrder = $this->buildApiOrder([
+            'id' => 'ord_dunning_1',
+            'customerId' => 'cus_456',
+            'total' => ['currency' => 'EUR', 'value' => '49.00'],
+            'subtotal' => ['currency' => 'EUR', 'value' => '40.50'],
+            'taxRates' => [
+                ['name' => 'VAT', 'percentage' => 21.0, 'taxablePercentage' => 100.0, 'amount' => '8.50'],
+            ],
+            'invoiceNumber' => null,
+            'paymentMethod' => 'sepa_direct_debit',
+            'status' => 'pending',
+        ]);
+
+        $this->getOrder->shouldReceive('execute')
+            ->once()
+            ->with('ord_dunning_1')
+            ->andReturn($apiOrder);
+
+        $webhook = new WebhookReceived(
+            id: 'webhook_event_pf',
+            resource: 'webhook_event',
+            eventName: 'payment.failed',
+            entityType: 'order',
+            entityId: 'ord_dunning_1',
+            testmode: false,
+            createdAt: '2024-01-15T10:00:00Z',
+            object: [
+                'customerId' => 'cus_456',
+                'total' => ['currency' => 'EUR', 'value' => '49.00'],
+            ],
+        );
+
+        $event = $this->factory->createFromWebhook($webhook);
+
+        $this->assertInstanceOf(PaymentFailed::class, $event);
+        $this->assertSame('cus_456', $event->customerId);
+        $this->assertSame('ord_dunning_1', $event->orderId);
+        $this->assertSame('pending', $event->status);
+        $this->assertSame(4900, $event->total);
+        $this->assertSame(4050, $event->subtotal);
+        $this->assertSame('EUR', $event->currency);
+        $this->assertNull($event->invoiceNumber);
+        $this->assertSame('sepa_direct_debit', $event->paymentMethod);
+        $this->assertCount(1, $event->taxSummary);
+        $this->assertSame('VAT', $event->taxSummary->items[0]->rate->name);
+        $this->assertSame(850, $event->taxSummary->items[0]->amount);
     }
 
     public function test_it_creates_unsupported_webhook_received_for_unknown_events(): void
@@ -232,12 +284,14 @@ class WebhookEventFactoryTest extends TestCase
         $this->assertContains('subscription.canceled_immediately', $supported);
         $this->assertContains('subscription.canceled_with_grace_period', $supported);
         $this->assertContains('order.paid', $supported);
+        $this->assertContains('payment.failed', $supported);
     }
 
     public function test_it_checks_if_event_is_supported(): void
     {
         $this->assertTrue($this->factory->isSupported('subscription.started'));
         $this->assertTrue($this->factory->isSupported('order.paid'));
+        $this->assertTrue($this->factory->isSupported('payment.failed'));
         $this->assertFalse($this->factory->isSupported('unknown.event'));
     }
 
@@ -250,6 +304,7 @@ class WebhookEventFactoryTest extends TestCase
      *   taxRates: array<int, array{name: string, percentage: float, taxablePercentage: float, amount: string}>,
      *   invoiceNumber: ?string,
      *   paymentMethod: ?string,
+     *   status?: string,
      * } $data
      */
     private function buildApiOrder(array $data): ApiOrder
@@ -261,7 +316,7 @@ class WebhookEventFactoryTest extends TestCase
         $order->subtotal = new Money($data['subtotal']['currency'], $data['subtotal']['value']);
         $order->invoiceNumber = $data['invoiceNumber'];
         $order->paymentMethod = $data['paymentMethod'];
-        $order->status = 'paid';
+        $order->status = $data['status'] ?? 'paid';
 
         $taxItems = array_map(
             fn (array $rate) => [
