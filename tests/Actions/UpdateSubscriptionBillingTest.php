@@ -10,6 +10,7 @@ use Vatly\API\Types\Link;
 use Vatly\API\VatlyApiClient;
 use Vatly\Fluent\Actions\UpdateSubscriptionBilling;
 use Vatly\Fluent\Contracts\ConfigurationInterface;
+use Vatly\Fluent\Exceptions\IncompleteInformationException;
 use Vatly\Fluent\Tests\TestCase;
 
 class UpdateSubscriptionBillingTest extends TestCase
@@ -102,6 +103,63 @@ class UpdateSubscriptionBillingTest extends TestCase
         $response = $this->action->execute($subscriptionId, [
             'redirectUrlSuccess' => 'https://override.example.com/done',
             'redirectUrlCanceled' => 'https://override.example.com/oops',
+        ]);
+
+        $this->assertInstanceOf(Link::class, $response);
+    }
+
+    public function test_it_throws_when_redirect_url_success_resolves_to_empty(): void
+    {
+        $config = Mockery::mock(ConfigurationInterface::class);
+        $config->shouldReceive('getDefaultRedirectUrlSuccess')->andReturn('');
+        $config->shouldReceive('getDefaultRedirectUrlCanceled')->andReturn('https://app.example.com/billing');
+
+        $action = new UpdateSubscriptionBilling($this->mockApiClient, $config);
+
+        $this->mockSubscriptionEndpoint->shouldNotReceive('updateBilling');
+
+        $this->expectException(IncompleteInformationException::class);
+        $this->expectExceptionMessage("'redirectUrlSuccess'");
+
+        $action->execute('subscription_abc123');
+    }
+
+    public function test_it_throws_when_redirect_url_canceled_resolves_to_empty(): void
+    {
+        $config = Mockery::mock(ConfigurationInterface::class);
+        $config->shouldReceive('getDefaultRedirectUrlSuccess')->andReturn('https://app.example.com/billing/updated');
+        $config->shouldReceive('getDefaultRedirectUrlCanceled')->andReturn('');
+
+        $action = new UpdateSubscriptionBilling($this->mockApiClient, $config);
+
+        $this->mockSubscriptionEndpoint->shouldNotReceive('updateBilling');
+
+        $this->expectException(IncompleteInformationException::class);
+        $this->expectExceptionMessage("'redirectUrlCanceled'");
+
+        $action->execute('subscription_abc123');
+    }
+
+    public function test_caller_can_supply_redirect_urls_when_config_defaults_are_empty(): void
+    {
+        $config = Mockery::mock(ConfigurationInterface::class);
+        $config->shouldReceive('getDefaultRedirectUrlSuccess')->andReturn('');
+        $config->shouldReceive('getDefaultRedirectUrlCanceled')->andReturn('');
+
+        $action = new UpdateSubscriptionBilling($this->mockApiClient, $config);
+
+        $this->mockSubscriptionEndpoint
+            ->shouldReceive('updateBilling')
+            ->once()
+            ->with('subscription_abc123', [
+                'redirectUrlSuccess' => 'https://caller.example.com/done',
+                'redirectUrlCanceled' => 'https://caller.example.com/oops',
+            ])
+            ->andReturn(new Link('https://checkout.vatly.com/billing-update/abc', 'text/html'));
+
+        $response = $action->execute('subscription_abc123', [
+            'redirectUrlSuccess' => 'https://caller.example.com/done',
+            'redirectUrlCanceled' => 'https://caller.example.com/oops',
         ]);
 
         $this->assertInstanceOf(Link::class, $response);
