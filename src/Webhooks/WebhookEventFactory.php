@@ -7,6 +7,7 @@ namespace Vatly\Fluent\Webhooks;
 use Vatly\API\Webhooks\WebhookPayload;
 use Vatly\Fluent\Actions\GetOrder;
 use Vatly\Fluent\Events\OrderPaid;
+use Vatly\Fluent\Events\PaymentFailed;
 use Vatly\Fluent\Events\SubscriptionCanceledImmediately;
 use Vatly\Fluent\Events\SubscriptionCanceledWithGracePeriod;
 use Vatly\Fluent\Events\SubscriptionStarted;
@@ -24,11 +25,11 @@ class WebhookEventFactory
     /**
      * Create a typed event from a raw webhook.
      *
-     * For `order.paid` the factory performs a follow-up API GET so the
-     * dispatched event carries the full tax breakdown — webhook payloads
-     * themselves only include gross total.
+     * For order-scoped events (`order.paid`, `payment.failed`) the factory
+     * performs a follow-up API GET so the dispatched event carries the full
+     * tax breakdown — webhook payloads themselves only include gross total.
      *
-     * @return SubscriptionStarted|SubscriptionCanceledImmediately|SubscriptionCanceledWithGracePeriod|OrderPaid|UnsupportedWebhookReceived
+     * @return SubscriptionStarted|SubscriptionCanceledImmediately|SubscriptionCanceledWithGracePeriod|OrderPaid|PaymentFailed|UnsupportedWebhookReceived
      */
     public function createFromWebhook(WebhookReceived $webhook): object
     {
@@ -37,6 +38,7 @@ class WebhookEventFactory
             SubscriptionCanceledImmediately::VATLY_EVENT_NAME => SubscriptionCanceledImmediately::fromWebhook($webhook),
             SubscriptionCanceledWithGracePeriod::VATLY_EVENT_NAME => SubscriptionCanceledWithGracePeriod::fromWebhook($webhook),
             OrderPaid::VATLY_EVENT_NAME => OrderPaid::fromApiOrder($this->getOrder->execute($webhook->entityId)),
+            PaymentFailed::VATLY_EVENT_NAME => PaymentFailed::fromApiOrder($this->getOrder->execute($webhook->entityId)),
             default => UnsupportedWebhookReceived::fromWebhook($webhook),
         };
     }
@@ -76,6 +78,7 @@ class WebhookEventFactory
             SubscriptionCanceledImmediately::VATLY_EVENT_NAME,
             SubscriptionCanceledWithGracePeriod::VATLY_EVENT_NAME,
             OrderPaid::VATLY_EVENT_NAME,
+            PaymentFailed::VATLY_EVENT_NAME,
         ];
     }
 

@@ -5,10 +5,15 @@ declare(strict_types=1);
 namespace Vatly\Fluent\Tests\Webhooks;
 
 use Mockery;
+use Vatly\API\Resources\Order as ApiOrder;
+use Vatly\API\Types\Money;
+use Vatly\API\Types\TaxSummaryCollection;
+use Vatly\API\VatlyApiClient;
 use Vatly\Fluent\Actions\GetOrder;
 use Vatly\Fluent\Contracts\EventDispatcherInterface;
 use Vatly\Fluent\Contracts\WebhookCallRepositoryInterface;
 use Vatly\Fluent\Contracts\WebhookReactionInterface;
+use Vatly\Fluent\Events\PaymentFailed;
 use Vatly\Fluent\Events\SubscriptionStarted;
 use Vatly\Fluent\Events\UnsupportedWebhookReceived;
 use Vatly\Fluent\Exceptions\InvalidWebhookSignatureException;
@@ -19,6 +24,7 @@ use Vatly\Fluent\Webhooks\WebhookProcessor;
 class WebhookProcessorTest extends TestCase
 {
     private string $secret;
+    private GetOrder $getOrder;
     private WebhookEventFactory $eventFactory;
     private WebhookCallRepositoryInterface $repository;
     private EventDispatcherInterface $dispatcher;
@@ -29,7 +35,8 @@ class WebhookProcessorTest extends TestCase
         parent::setUp();
 
         $this->secret = 'test-webhook-secret';
-        $this->eventFactory = new WebhookEventFactory(Mockery::mock(GetOrder::class));
+        $this->getOrder = Mockery::mock(GetOrder::class);
+        $this->eventFactory = new WebhookEventFactory($this->getOrder);
         $this->repository = Mockery::mock(WebhookCallRepositoryInterface::class);
         $this->dispatcher = Mockery::mock(EventDispatcherInterface::class);
 
@@ -135,6 +142,60 @@ class WebhookProcessorTest extends TestCase
         );
 
         $processor->handle($payload, $signature);
+    }
+
+    public function test_it_processes_a_payment_failed_webhook_end_to_end(): void
+    {
+        $payload = $this->makePayload(
+            id: 'webhook_event_pf',
+            eventName: 'payment.failed',
+            entityType: 'order',
+            entityId: 'ord_dunning_1',
+            object: [
+                'customerId' => 'cus_456',
+                'total' => ['currency' => 'EUR', 'value' => '49.00'],
+            ],
+        );
+
+        $signature = $this->makeSignatureHeader($payload, $this->secret);
+
+        $apiOrder = new ApiOrder(Mockery::mock(VatlyApiClient::class));
+        $apiOrder->id = 'ord_dunning_1';
+        $apiOrder->customerId = 'cus_456';
+        $apiOrder->total = new Money('EUR', '49.00');
+        $apiOrder->subtotal = new Money('EUR', '40.50');
+        $apiOrder->invoiceNumber = null;
+        $apiOrder->paymentMethod = 'sepa_direct_debit';
+        $apiOrder->status = 'open';
+        $apiOrder->taxSummary = new TaxSummaryCollection([
+            [
+                'taxRate' => ['name' => 'VAT', 'percentage' => 21.0, 'taxablePercentage' => 100.0],
+                'amount' => ['currency' => 'EUR', 'value' => '8.50'],
+            ],
+        ]);
+
+        $this->getOrder->shouldReceive('execute')
+            ->once()
+            ->with('ord_dunning_1')
+            ->andReturn($apiOrder);
+
+        $this->repository->shouldReceive('record')->once();
+
+        $this->dispatcher
+            ->shouldReceive('dispatch')
+            ->once()
+            ->withArgs(function (object $event) {
+                return $event instanceof PaymentFailed
+                    && $event->customerId === 'cus_456'
+                    && $event->orderId === 'ord_dunning_1'
+                    && $event->total === 4900
+                    && $event->subtotal === 4050
+                    && $event->currency === 'EUR'
+                    && $event->paymentMethod === 'sepa_direct_debit'
+                    && $event->taxSummary->items[0]->amount === 850;
+            });
+
+        $this->processor->handle($payload, $signature);
     }
 
     public function test_it_throws_exception_for_invalid_signature(): void
