@@ -25,5 +25,16 @@ class UpdateSubscriptionData
          * host's status vocabulary. Null means "no status change".
          */
         public ?string $status = null,
+        /**
+         * Normalized payment-method category — see {@see \Vatly\API\Types\Mandate::$method}.
+         * Null means "no change". To represent "mandate removed", drivers should
+         * still pass null here; explicit removal is a future extension if needed.
+         */
+        public ?string $mandateMethod = null,
+        /**
+         * Customer-facing masked identifier — see {@see \Vatly\API\Types\Mandate::$maskedIdentifier}.
+         * Null means "no change".
+         */
+        public ?string $mandateMaskedIdentifier = null,
     ) {}
 }

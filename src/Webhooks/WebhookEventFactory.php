@@ -6,6 +6,7 @@ namespace Vatly\Fluent\Webhooks;
 
 use Vatly\API\Webhooks\WebhookPayload;
 use Vatly\Fluent\Actions\GetOrder;
+use Vatly\Fluent\Actions\GetSubscription;
 use Vatly\Fluent\Events\OrderPaid;
 use Vatly\Fluent\Events\PaymentFailed;
 use Vatly\Fluent\Events\SubscriptionCanceledImmediately;
@@ -18,6 +19,7 @@ class WebhookEventFactory
 {
     public function __construct(
         private GetOrder $getOrder,
+        private GetSubscription $getSubscription,
     ) {
         //
     }
@@ -29,12 +31,16 @@ class WebhookEventFactory
      * performs a follow-up API GET so the dispatched event carries the full
      * tax breakdown — webhook payloads themselves only include gross total.
      *
+     * For `subscription.started` the same enrichment pattern fetches the
+     * mandate summary, so consumers can persist the payment method on file
+     * without a separate API roundtrip per portal render.
+     *
      * @return SubscriptionStarted|SubscriptionCanceledImmediately|SubscriptionCanceledWithGracePeriod|OrderPaid|PaymentFailed|UnsupportedWebhookReceived
      */
     public function createFromWebhook(WebhookReceived $webhook): object
     {
         return match ($webhook->eventName) {
-            SubscriptionStarted::VATLY_EVENT_NAME => SubscriptionStarted::fromWebhook($webhook),
+            SubscriptionStarted::VATLY_EVENT_NAME => SubscriptionStarted::fromApiSubscription($this->getSubscription->execute($webhook->entityId)),
             SubscriptionCanceledImmediately::VATLY_EVENT_NAME => SubscriptionCanceledImmediately::fromWebhook($webhook),
             SubscriptionCanceledWithGracePeriod::VATLY_EVENT_NAME => SubscriptionCanceledWithGracePeriod::fromWebhook($webhook),
             OrderPaid::VATLY_EVENT_NAME => OrderPaid::fromApiOrder($this->getOrder->execute($webhook->entityId)),
