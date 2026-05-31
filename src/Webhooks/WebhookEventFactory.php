@@ -32,21 +32,43 @@ class WebhookEventFactory
      * tax breakdown — webhook payloads themselves only include gross total.
      *
      * For `subscription.started` the same enrichment pattern fetches the
-     * mandate summary, so consumers can persist the payment method on file
-     * without a separate API roundtrip per portal render.
+     * mandate summary so consumers can persist the payment method on file
+     * without a separate API roundtrip per portal render. Enrichment is
+     * best-effort: a transient `GetSubscription` failure does not block
+     * persistence — the event falls back to the webhook payload (mandate
+     * stays null, backfilled by the next `sync()` or future
+     * `subscription.billing_updated` event).
      *
      * @return SubscriptionStarted|SubscriptionCanceledImmediately|SubscriptionCanceledWithGracePeriod|OrderPaid|PaymentFailed|UnsupportedWebhookReceived
      */
     public function createFromWebhook(WebhookReceived $webhook): object
     {
         return match ($webhook->eventName) {
-            SubscriptionStarted::VATLY_EVENT_NAME => SubscriptionStarted::fromApiSubscription($this->getSubscription->execute($webhook->entityId)),
+            SubscriptionStarted::VATLY_EVENT_NAME => $this->createSubscriptionStarted($webhook),
             SubscriptionCanceledImmediately::VATLY_EVENT_NAME => SubscriptionCanceledImmediately::fromWebhook($webhook),
             SubscriptionCanceledWithGracePeriod::VATLY_EVENT_NAME => SubscriptionCanceledWithGracePeriod::fromWebhook($webhook),
             OrderPaid::VATLY_EVENT_NAME => OrderPaid::fromApiOrder($this->getOrder->execute($webhook->entityId)),
             PaymentFailed::VATLY_EVENT_NAME => PaymentFailed::fromApiOrder($this->getOrder->execute($webhook->entityId)),
             default => UnsupportedWebhookReceived::fromWebhook($webhook),
         };
+    }
+
+    /**
+     * Build a SubscriptionStarted event, preferring the API-enriched form
+     * (carries mandate) but falling back to the webhook payload on any
+     * GetSubscription failure. Keeps the webhook flow resilient to
+     * transient API errors that would otherwise force Vatly to retry the
+     * delivery for a recoverable enrichment-only issue.
+     */
+    private function createSubscriptionStarted(WebhookReceived $webhook): SubscriptionStarted
+    {
+        try {
+            return SubscriptionStarted::fromApiSubscription(
+                $this->getSubscription->execute($webhook->entityId),
+            );
+        } catch (\Throwable) {
+            return SubscriptionStarted::fromWebhook($webhook);
+        }
     }
 
     /**

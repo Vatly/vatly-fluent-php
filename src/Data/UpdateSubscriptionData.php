@@ -27,8 +27,8 @@ class UpdateSubscriptionData
         public ?string $status = null,
         /**
          * Normalized payment-method category — see {@see \Vatly\API\Types\Mandate::$method}.
-         * Null means "no change". To represent "mandate removed", drivers should
-         * still pass null here; explicit removal is a future extension if needed.
+         * Null means "no change" (pair with `clearMandate: true` below to
+         * explicitly remove a stored mandate).
          */
         public ?string $mandateMethod = null,
         /**
@@ -36,5 +36,21 @@ class UpdateSubscriptionData
          * Null means "no change".
          */
         public ?string $mandateMaskedIdentifier = null,
+        /**
+         * When true, clears both mandate fields in the driver's storage.
+         * Mirrors the `clearEndsAt` convention: a non-null `mandateMethod`
+         * wins over this flag, so passing fresh mandate values is always
+         * a replacement.
+         *
+         * Use this to explicitly remove a stored mandate (e.g. on a
+         * `subscription.billing_updated` webhook where the API returns
+         * `mandate: null` for a customer who revoked their payment method).
+         * `SubscriptionHandle::sync()` deliberately does NOT set this when
+         * the live API returns `mandate: null` — that's a known transient
+         * state for freshly-subscribed customers per
+         * {@see \Vatly\API\Types\Mandate::$maskedIdentifier}'s docblock,
+         * and auto-clearing would wipe a freshly-stored mandate.
+         */
+        public bool $clearMandate = false,
     ) {}
 }

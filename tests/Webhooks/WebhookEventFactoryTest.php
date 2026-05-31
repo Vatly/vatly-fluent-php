@@ -122,6 +122,44 @@ class WebhookEventFactoryTest extends TestCase
         $this->assertSame('4242', $event->mandateMaskedIdentifier);
     }
 
+    public function test_subscription_started_falls_back_to_webhook_payload_when_enrichment_fails(): void
+    {
+        // GetSubscription failure (network blip, rate limit, transient 5xx) must
+        // not block the webhook flow. The webhook payload itself carries enough
+        // to persist the subscription; mandate stays null and is backfilled on
+        // the next sync() or subscription.billing_updated event.
+        $webhook = new WebhookReceived(
+            id: 'webhook_event_abc',
+            resource: 'webhook_event',
+            eventName: 'subscription.started',
+            entityType: 'subscription',
+            entityId: 'sub_transient_fail',
+            testmode: false,
+            createdAt: '2024-01-15T10:00:00Z',
+            object: [
+                'customerId' => 'cus_456',
+                'subscriptionPlanId' => 'plan_789',
+                'name' => 'Premium Plan',
+                'quantity' => 1,
+            ],
+        );
+
+        $this->getSubscription->shouldReceive('execute')
+            ->andThrow(new \RuntimeException('Transient API failure'));
+
+        $event = $this->factory->createFromWebhook($webhook);
+
+        $this->assertInstanceOf(SubscriptionStarted::class, $event);
+        $this->assertSame('cus_456', $event->customerId);
+        $this->assertSame('sub_transient_fail', $event->subscriptionId);
+        $this->assertSame('plan_789', $event->planId);
+        $this->assertSame('Premium Plan', $event->name);
+        $this->assertSame(1, $event->quantity);
+        // Fallback path can't enrich mandate from the webhook payload.
+        $this->assertNull($event->mandateMethod);
+        $this->assertNull($event->mandateMaskedIdentifier);
+    }
+
     public function test_subscription_started_event_carries_null_mandate_when_api_returns_none(): void
     {
         $webhook = new WebhookReceived(
