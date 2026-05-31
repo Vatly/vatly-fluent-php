@@ -47,8 +47,8 @@ class WebhookEventFactory
             SubscriptionStarted::VATLY_EVENT_NAME => $this->createSubscriptionStarted($webhook),
             SubscriptionCanceledImmediately::VATLY_EVENT_NAME => SubscriptionCanceledImmediately::fromWebhook($webhook),
             SubscriptionCanceledWithGracePeriod::VATLY_EVENT_NAME => SubscriptionCanceledWithGracePeriod::fromWebhook($webhook),
-            OrderPaid::VATLY_EVENT_NAME => OrderPaid::fromApiOrder($this->getOrder->execute($webhook->entityId)),
-            PaymentFailed::VATLY_EVENT_NAME => PaymentFailed::fromApiOrder($this->getOrder->execute($webhook->entityId)),
+            OrderPaid::VATLY_EVENT_NAME => $this->createOrderPaid($webhook),
+            PaymentFailed::VATLY_EVENT_NAME => $this->createPaymentFailed($webhook),
             default => UnsupportedWebhookReceived::fromWebhook($webhook),
         };
     }
@@ -69,6 +69,34 @@ class WebhookEventFactory
         } catch (\Throwable) {
             return SubscriptionStarted::fromWebhook($webhook);
         }
+    }
+
+    /**
+     * Build an OrderPaid event from the enriched API resource.
+     *
+     * Unlike SubscriptionStarted, OrderPaid intentionally rethrows on
+     * enrichment failure: the webhook payload lacks `subtotal`, `taxSummary`,
+     * and `status`. A best-effort fallback would persist a row with wrong tax
+     * data, which compounds into compliance/reconciliation issues. Letting
+     * the webhook fail forces Vatly to retry — the correct outcome for a
+     * transient API blip, given that order data integrity beats availability
+     * for payment-processing entities.
+     */
+    private function createOrderPaid(WebhookReceived $webhook): OrderPaid
+    {
+        return OrderPaid::fromApiOrder($this->getOrder->execute($webhook->entityId));
+    }
+
+    /**
+     * Build a PaymentFailed event from the enriched API resource.
+     *
+     * Same rationale as {@see self::createOrderPaid()}: rethrows on enrichment
+     * failure rather than writing a degraded row. Tax breakdown is critical
+     * for dunning-notification accuracy and downstream reconciliation.
+     */
+    private function createPaymentFailed(WebhookReceived $webhook): PaymentFailed
+    {
+        return PaymentFailed::fromApiOrder($this->getOrder->execute($webhook->entityId));
     }
 
     /**
