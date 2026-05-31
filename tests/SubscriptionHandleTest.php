@@ -219,8 +219,7 @@ class SubscriptionHandleTest extends TestCase
         $subscriptions->shouldReceive('update')
             ->once()
             ->with($subscription, Mockery::on(function (UpdateSubscriptionData $data) {
-                return $data->mandateMethod === null
-                    && $data->mandateMaskedIdentifier === null
+                return $data->mandate === null
                     && $data->clearMandate === true;
             }))
             ->andReturn(Mockery::mock(SubscriptionInterface::class));
@@ -260,8 +259,7 @@ class SubscriptionHandleTest extends TestCase
         $subscriptions->shouldReceive('update')
             ->once()
             ->with($subscription, Mockery::on(function (UpdateSubscriptionData $data) {
-                return $data->mandateMethod === null
-                    && $data->mandateMaskedIdentifier === null
+                return $data->mandate === null
                     && $data->clearMandate === false;
             }))
             ->andReturn(Mockery::mock(SubscriptionInterface::class));
@@ -300,8 +298,53 @@ class SubscriptionHandleTest extends TestCase
         $subscriptions->shouldReceive('update')
             ->once()
             ->with($subscription, Mockery::on(function (UpdateSubscriptionData $data) {
-                return $data->mandateMethod === 'sepa_debit'
-                    && $data->mandateMaskedIdentifier === 'NL91****4300'
+                return $data->mandate instanceof \Vatly\API\Types\Mandate
+                    && $data->mandate->method === 'sepa_debit'
+                    && $data->mandate->maskedIdentifier === 'NL91****4300'
+                    && $data->clearMandate === false;
+            }))
+            ->andReturn(Mockery::mock(SubscriptionInterface::class));
+
+        $handle = $this->buildHandle(
+            subscription: $subscription,
+            subscriptions: $subscriptions,
+            getSubscriptionAction: $getAction,
+        );
+
+        $handle->sync();
+    }
+
+    public function test_sync_atomically_replaces_card_with_paypal_clearing_stale_last4(): void
+    {
+        // Regression: card → paypal switch. PayPal mandates legitimately have
+        // no maskedIdentifier. With the old two-field DTO, null identifier
+        // was interpreted as "no change", leaving the old card last4 stored
+        // alongside method=paypal — mixed local state like "paypal / 4242".
+        // The Mandate object is now atomic so both parts swap together.
+        $subscription = Mockery::mock(SubscriptionInterface::class);
+        $subscription->shouldReceive('getVatlyId')->andReturn('subscription_abc');
+        $subscription->shouldReceive('getEndsAt')->andReturn(null);
+        $subscription->shouldReceive('getMandateMethod')->andReturn('card');
+
+        $apiResponse = $this->makeApiSubscription([
+            'subscriptionPlanId' => 'plan_basic',
+            'name' => 'Basic',
+            'quantity' => 1,
+            'endedAt' => null,
+            'canceledAt' => null,
+            'mandate' => new \Vatly\API\Types\Mandate('paypal', null),
+        ]);
+
+        $getAction = Mockery::mock(GetSubscription::class);
+        $getAction->shouldReceive('execute')->andReturn($apiResponse);
+
+        $subscriptions = Mockery::mock(SubscriptionRepositoryInterface::class);
+        $subscriptions->shouldReceive('update')
+            ->once()
+            ->with($subscription, Mockery::on(function (UpdateSubscriptionData $data) {
+                return $data->mandate instanceof \Vatly\API\Types\Mandate
+                    && $data->mandate->method === 'paypal'
+                    && $data->mandate->maskedIdentifier === null
                     && $data->clearMandate === false;
             }))
             ->andReturn(Mockery::mock(SubscriptionInterface::class));

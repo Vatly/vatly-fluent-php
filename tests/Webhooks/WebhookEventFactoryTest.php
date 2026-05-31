@@ -118,8 +118,9 @@ class WebhookEventFactoryTest extends TestCase
         $this->assertSame('plan_789', $event->planId);
         $this->assertSame('Premium Plan', $event->name);
         $this->assertSame(1, $event->quantity);
-        $this->assertSame('card', $event->mandateMethod);
-        $this->assertSame('4242', $event->mandateMaskedIdentifier);
+        $this->assertNotNull($event->mandate);
+        $this->assertSame('card', $event->mandate->method);
+        $this->assertSame('4242', $event->mandate->maskedIdentifier);
     }
 
     public function test_subscription_started_falls_back_to_webhook_payload_when_enrichment_fails(): void
@@ -156,8 +157,7 @@ class WebhookEventFactoryTest extends TestCase
         $this->assertSame('Premium Plan', $event->name);
         $this->assertSame(1, $event->quantity);
         // Fallback path can't enrich mandate from the webhook payload.
-        $this->assertNull($event->mandateMethod);
-        $this->assertNull($event->mandateMaskedIdentifier);
+        $this->assertNull($event->mandate);
     }
 
     public function test_subscription_started_event_carries_null_mandate_when_api_returns_none(): void
@@ -187,8 +187,7 @@ class WebhookEventFactoryTest extends TestCase
         $event = $this->factory->createFromWebhook($webhook);
 
         $this->assertInstanceOf(SubscriptionStarted::class, $event);
-        $this->assertNull($event->mandateMethod);
-        $this->assertNull($event->mandateMaskedIdentifier);
+        $this->assertNull($event->mandate);
     }
 
     public function test_it_creates_subscription_canceled_immediately_event_from_webhook(): void

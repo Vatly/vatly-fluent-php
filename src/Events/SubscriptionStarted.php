@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Vatly\Fluent\Events;
 
 use Vatly\API\Resources\Subscription as ApiSubscription;
+use Vatly\API\Types\Mandate;
 
 /**
  * Event representing a subscription being started at Vatly.
@@ -29,15 +30,15 @@ class SubscriptionStarted
         public string $name,
         public int $quantity,
         /**
-         * Normalized payment-method category — see {@see \Vatly\API\Types\Mandate::$method}.
-         * `null` when no mandate is on file yet at webhook time (the API briefly
-         * returns `mandate: null` for freshly-subscribed customers).
+         * Payment method on file at the time the webhook fires. `null` when
+         * no mandate has bound yet — the API briefly returns `mandate: null`
+         * for freshly-subscribed customers (see
+         * {@see \Vatly\API\Types\Mandate::$maskedIdentifier}'s docblock).
+         * The mandate's method + maskedIdentifier are atomically bound
+         * together inside the Mandate object so listeners can't accidentally
+         * mix old + new values.
          */
-        public ?string $mandateMethod = null,
-        /**
-         * Customer-facing masked identifier — see {@see \Vatly\API\Types\Mandate::$maskedIdentifier}.
-         */
-        public ?string $mandateMaskedIdentifier = null,
+        public ?Mandate $mandate = null,
     ) {
         //
     }
@@ -55,14 +56,13 @@ class SubscriptionStarted
             type: self::DEFAULT_TYPE,
             name: $subscription->name,
             quantity: $subscription->quantity,
-            mandateMethod: $subscription->mandate?->method,
-            mandateMaskedIdentifier: $subscription->mandate?->maskedIdentifier,
+            mandate: $subscription->mandate,
         );
     }
 
     /**
      * Sparse, webhook-payload-only build kept for tests and callers who don't
-     * want to fetch the full API resource. Mandate fields stay null.
+     * want to fetch the full API resource. Mandate stays null.
      */
     public static function fromWebhook(WebhookReceived $webhook): self
     {

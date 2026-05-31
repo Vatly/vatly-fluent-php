@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Vatly\Fluent\Data;
 
 use DateTimeInterface;
+use Vatly\API\Types\Mandate;
 
 /**
  * Data for updating an existing subscription from Vatly.
@@ -26,21 +27,23 @@ class UpdateSubscriptionData
          */
         public ?string $status = null,
         /**
-         * Normalized payment-method category — see {@see \Vatly\API\Types\Mandate::$method}.
-         * Null means "no change" (pair with `clearMandate: true` below to
-         * explicitly remove a stored mandate).
+         * Atomic mandate replacement. Non-null = the driver writes the whole
+         * Mandate object (both method and maskedIdentifier, the latter may
+         * be null for mandate types without an identifier like PayPal).
+         * Null = "no mandate change" — pair with `clearMandate: true` below
+         * to explicitly remove a stored mandate.
+         *
+         * The two parts (method, maskedIdentifier) are atomically bound:
+         * passing a fresh Mandate replaces both, preventing mixed local
+         * state like "paypal / 4242" (old card last4 lingering after a
+         * card→paypal switch).
          */
-        public ?string $mandateMethod = null,
+        public ?Mandate $mandate = null,
         /**
-         * Customer-facing masked identifier — see {@see \Vatly\API\Types\Mandate::$maskedIdentifier}.
-         * Null means "no change".
-         */
-        public ?string $mandateMaskedIdentifier = null,
-        /**
-         * When true, clears both mandate fields in the driver's storage.
-         * Mirrors the `clearEndsAt` convention: a non-null `mandateMethod`
-         * wins over this flag, so passing fresh mandate values is always
-         * a replacement.
+         * When true, clears the mandate fields in the driver's storage.
+         * Mirrors the `clearEndsAt` convention: a non-null `mandate` wins
+         * over this flag, so passing a fresh Mandate is always a
+         * replacement.
          *
          * Set by {@see \Vatly\Fluent\SubscriptionHandle::sync()} when the
          * live API returns `mandate: null` *and* the local copy has a

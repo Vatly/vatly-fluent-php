@@ -271,8 +271,7 @@ class SubscriptionHandle
                 name: $response->name,
                 quantity: $response->quantity,
                 endsAt: $endsAt,
-                mandateMethod: $response->mandate?->method,
-                mandateMaskedIdentifier: $response->mandate?->maskedIdentifier,
+                mandate: $response->mandate,
                 clearMandate: $shouldClearMandate,
             ),
         );

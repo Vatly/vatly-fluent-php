@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Vatly\Fluent\Data;
 
+use Vatly\API\Types\Mandate;
+
 /**
  * Data for storing a new subscription from Vatly.
  *
@@ -20,14 +22,12 @@ class StoreSubscriptionData
         public int $quantity = 1,
         public ?string $hostCustomerId = null,
         /**
-         * Normalized payment-method category — see {@see \Vatly\API\Types\Mandate::$method}.
-         * `null` when the mandate isn't known yet at store-time.
+         * Payment method on file at store-time. Null when the mandate
+         * isn't known yet (typical for freshly-subscribed customers — the
+         * API briefly returns `mandate: null` before payment binds; later
+         * `SubscriptionHandle::sync()` or a `subscription.billing_updated`
+         * event populates it).
          */
-        public ?string $mandateMethod = null,
-        /**
-         * Customer-facing masked identifier for the payment method on file
-         * — see {@see \Vatly\API\Types\Mandate::$maskedIdentifier}.
-         */
-        public ?string $mandateMaskedIdentifier = null,
+        public ?Mandate $mandate = null,
     ) {}
 }
