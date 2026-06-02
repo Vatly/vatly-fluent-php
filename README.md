@@ -103,8 +103,8 @@ For incoming Vatly webhooks, fluent dispatches a typed event and runs a built-in
 |--------------------------|-------------------------------------------------------------------|--------------------------------|------------------------------------------------------|
 | `order.paid`             | `OrderPaid`                                                       | `StoreOrderOnPaid`             | `OrderWriter::store` (new) / `OrderWriter::update` (existing) |
 | `order.canceled`         | `OrderCanceled`                                                   | `CancelOrderOnCanceled`        | `OrderWriter::update` (mirrors `canceled` status)    |
-| `order.chargeback_received` | `OrderChargebackReceived`                                      | — (dispatched only)            | none — driver-handled                                |
-| `order.chargeback_reversed` | `OrderChargebackReversed`                                      | — (dispatched only)            | none — driver-handled                                |
+| `order.chargeback_received` | `OrderChargebackReceived`                                   | `SyncChargebackOnStatusChange` + `SyncOrderOnChargebackChange` *(opt-in)* | `ChargebackWriter::store` (new) + `OrderWriter::update` (order → `chargeback`) |
+| `order.chargeback_reversed` | `OrderChargebackReversed`                                   | `SyncChargebackOnStatusChange` + `SyncOrderOnChargebackChange` *(opt-in)* | `ChargebackWriter::update` + `OrderWriter::update` (order → `paid`) |
 | `refund.completed` / `refund.failed` / `refund.canceled` | `RefundCompleted` / `RefundFailed` / `RefundCanceled` | `SyncRefundOnStatusChange` *(opt-in)* | `RefundWriter::store` (new) / `::update` (existing) |
 | `refund.completed` / `refund.canceled` | (same as above) | `SyncOrderOnRefundChange` *(opt-in)* | `RefundReader::sumSubtotalsForOrder` + `OrderWriter::update` (derives local `refunded` / `partially_refunded` / `paid`) |
 | `subscription.started`   | `SubscriptionStarted`                                             | `SyncSubscriptionOnStarted`    | `SubscriptionWriter::store` (new) / `::update` (existing) |
@@ -124,7 +124,7 @@ When refunds are wired, a second reaction — `SyncOrderOnRefundChange` — runs
 
 Read the refunds back idiomatically with `RefundReader::listForOrder` / `listForCustomer`, or via the handle: `$vatly->order($localOrder)->refunds()` returns the `RefundInterface[]` recorded against that order (local read, no API call; empty array when no refund repo is wired).
 
-**Chargebacks** ship no built-in reaction: Vatly's public order status doesn't change on a chargeback, so fluent doesn't synthesize one. Instead `OrderChargebackReceived` / `OrderChargebackReversed` are dispatched (with the affected order's ID as `orderId`) for your driver to react to — e.g. suspend access on receipt, reinstate on reversal.
+**Chargebacks** mirror refunds and are opt-in: supply a `ChargebackRepositoryInterface` via `Wiring(chargebacks: …)` and two built-in reactions run. `SyncChargebackOnStatusChange` persists `order.chargeback_*` webhooks store-or-update (storing on receipt, updating on reversal); `SyncOrderOnChargebackChange` mirrors the dispute onto the original order's local status (`paid` → `chargeback` on receipt, back to `paid` on reversal, using `LocalOrderStatus`). Omit the repository and the typed `OrderChargebackReceived` / `OrderChargebackReversed` events are still dispatched for you to handle (e.g. suspend access on receipt, reinstate on reversal). When a `GetChargeback` action is wired the events are enriched (customer id, dispute status, tax breakdown) so the reversed VAT can be reconciled without a second API call; without it they fall back to the sparse webhook payload. Read chargebacks back via `ChargebackReader::listForOrder` / `listForCustomer` or `$vatly->order($localOrder)->chargebacks()`.
 
 **Checkout events** are dispatched only — no built-in reaction. The `checkout.*` deliveries carry the full Checkout resource (status, `customerId`, `orderId`, `metadata`) with no sparse money/tax fields, so they need no enriching API GET and are built straight from the payload. Use `CheckoutPaid` for an analytics/receipt handoff at the earliest "customer paid" moment — before `order.paid`'s tax-summary enrichment — and `CheckoutFailed` / `CheckoutCanceled` / `CheckoutExpired` for retry and cart-abandonment funnel hooks. `customerId` is nullable: an anonymous checkout only gets a customer attributed once payment completes.
 
@@ -323,6 +323,7 @@ Each entity-side contract has three methods. See [src/Contracts](src/Contracts) 
 - `SubscriptionRepositoryInterface` — `findByVatlyId`, `store`, `update`
 - `OrderRepositoryInterface` — `findByVatlyId`, `store`, `update`
 - `RefundRepositoryInterface` — `findByVatlyId`, `listForOrder`, `listForCustomer`, `sumSubtotalsForOrder`, `store`, `update` (**optional** — only needed to persist `refund.*` webhooks)
+- `ChargebackRepositoryInterface` — `findByVatlyId`, `listForOrder`, `listForCustomer`, `store`, `update` (**optional** — only needed to persist `order.chargeback_*` webhooks)
 - `WebhookCallRepositoryInterface` — record received webhook calls (audit log)
 
 `StoreSubscriptionData` and `StoreOrderData` both carry an optional `hostCustomerId` resolved from the binding repo when fluent persists from a webhook reaction. Use it to fill your host-side owner column when it's set, and accept `null` for the anonymous-checkout flow.
@@ -566,6 +567,7 @@ In [src/Contracts](src/Contracts):
 - `SubscriptionRepositoryInterface` — subscription persistence (3 methods). Splits into `SubscriptionReader` (find) + `SubscriptionWriter` (store/update).
 - `OrderRepositoryInterface` — order persistence (3 methods). Splits into `OrderReader` (find) + `OrderWriter` (store/update).
 - `RefundRepositoryInterface` — refund persistence (optional). Splits into `RefundReader` (find + `listForOrder` / `listForCustomer` / `sumSubtotalsForOrder`) + `RefundWriter` (store/update).
+- `ChargebackRepositoryInterface` — chargeback persistence (optional). Splits into `ChargebackReader` (find + `listForOrder` / `listForCustomer`) + `ChargebackWriter` (store/update).
 - `WebhookCallRepositoryInterface` — webhook audit log (write-only by nature)
 - `EventDispatcherInterface` — fire domain events
 - `ConfigurationInterface` — API key, URL, version, webhook secret, redirect defaults

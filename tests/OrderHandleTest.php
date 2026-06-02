@@ -10,6 +10,8 @@ use Vatly\API\Resources\Order as ApiOrder;
 use Vatly\API\Types\Link;
 use Vatly\API\VatlyApiClient;
 use Vatly\Fluent\Actions\GetOrder;
+use Vatly\Fluent\Contracts\ChargebackInterface;
+use Vatly\Fluent\Contracts\ChargebackReader;
 use Vatly\Fluent\Contracts\OrderInterface;
 use Vatly\Fluent\Contracts\RefundInterface;
 use Vatly\Fluent\Contracts\RefundReader;
@@ -105,6 +107,37 @@ class OrderHandleTest extends TestCase
         );
 
         $this->assertSame([], $handle->refunds());
+    }
+
+    public function test_chargebacks_returns_local_chargebacks_for_the_order(): void
+    {
+        $cb = Mockery::mock(ChargebackInterface::class);
+
+        $reader = Mockery::mock(ChargebackReader::class);
+        $reader->shouldReceive('listForOrder')->with('order_abc')->once()->andReturn([$cb]);
+
+        $order = Mockery::mock(OrderInterface::class);
+        $order->shouldReceive('getVatlyId')->andReturn('order_abc');
+
+        $handle = new OrderHandle(
+            order: $order,
+            getOrderAction: Mockery::mock(GetOrder::class),
+            chargebacks: $reader,
+        );
+
+        $this->assertSame([$cb], $handle->chargebacks());
+    }
+
+    public function test_chargebacks_is_empty_when_no_chargeback_reader_is_wired(): void
+    {
+        $order = Mockery::mock(OrderInterface::class);
+
+        $handle = new OrderHandle(
+            order: $order,
+            getOrderAction: Mockery::mock(GetOrder::class),
+        );
+
+        $this->assertSame([], $handle->chargebacks());
     }
 
     private function buildApiOrder(?string $invoiceHref): ApiOrder
